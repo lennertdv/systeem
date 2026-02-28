@@ -46,10 +46,20 @@ export default function KitchenView() {
           <ChefHat className="w-8 h-8 text-neutral-400" />
           <h1 className="text-2xl font-bold tracking-tight">Kitchen Display System</h1>
         </div>
-        <div className="flex items-center gap-4 text-sm font-medium text-neutral-400">
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> &lt; 10m</div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> 10-20m</div>
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div> &gt; 20m</div>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 text-sm font-medium text-neutral-400 bg-neutral-800 px-4 py-2 rounded-xl">
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> &lt; 10m</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> 10-20m</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div> &gt; 20m</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a href="/" className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition-colors">
+              Menu
+            </a>
+            <a href="/admin" className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition-colors">
+              Admin
+            </a>
+          </div>
         </div>
       </header>
 

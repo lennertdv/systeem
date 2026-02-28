@@ -73,6 +73,21 @@ export default function AdminDashboard() {
             <History className="w-5 h-5" />
             Order History
           </button>
+          
+          <div className="h-px bg-neutral-100 my-2 hidden md:block"></div>
+          
+          <a
+            href="/"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-neutral-600 hover:bg-neutral-100 transition-colors whitespace-nowrap"
+          >
+            Menu View
+          </a>
+          <a
+            href="/kitchen"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-neutral-600 hover:bg-neutral-100 transition-colors whitespace-nowrap"
+          >
+            Kitchen View
+          </a>
         </nav>
 
         <div className="p-4 border-t border-neutral-100 hidden md:block">
