@@ -15,21 +15,19 @@ export function useOrders(filterStatus?: string[]) {
       return;
     }
 
-    let ordersQuery = query(collection(db, 'orders'), orderBy('timestamp', 'desc'));
-    
-    if (filterStatusStr) {
-      const statuses = filterStatusStr.split(',');
-      ordersQuery = query(
-        collection(db, 'orders'),
-        where('status', 'in', statuses),
-        orderBy('timestamp', 'desc')
-      );
-    }
+    // Only order by timestamp to avoid Firestore composite index requirements
+    const ordersQuery = query(collection(db, 'orders'), orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
       const newOrders: Order[] = [];
+      const statuses = filterStatusStr ? filterStatusStr.split(',') : null;
+      
       snapshot.forEach((doc) => {
-        newOrders.push({ id: doc.id, ...doc.data() } as Order);
+        const data = doc.data();
+        // Filter in memory to avoid complex Firestore index requirements
+        if (!statuses || statuses.includes(data.status)) {
+          newOrders.push({ id: doc.id, ...data } as Order);
+        }
       });
       setOrders(newOrders);
       setLoading(false);

@@ -3,8 +3,8 @@ import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Order } from '../../types';
-import { formatDistanceToNow } from 'date-fns';
-import { ChefHat, CheckCircle2, Clock } from 'lucide-react';
+import { formatDistanceToNow, format } from 'date-fns';
+import { ChefHat, CheckCircle2, Clock, Hash } from 'lucide-react';
 
 export default function KitchenView() {
   const { orders, loading } = useOrders(['pending', 'in-progress']);
@@ -47,7 +47,7 @@ export default function KitchenView() {
           <h1 className="text-2xl font-bold tracking-tight">Kitchen Display System</h1>
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4 text-sm font-medium text-neutral-400 bg-neutral-800 px-4 py-2 rounded-xl">
+          <div className="flex items-center gap-4 text-sm font-medium text-neutral-400 bg-neutral-800 px-4 py-2 rounded-xl hidden md:flex">
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> &lt; 10m</div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> 10-20m</div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div> &gt; 20m</div>
@@ -66,7 +66,7 @@ export default function KitchenView() {
       <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
         {orders.length === 0 ? (
           <div className="col-span-full text-center py-20 text-neutral-500 text-xl font-medium">
-            No active orders. Kitchen is clear!
+            Geen actieve bestellingen. De keuken is leeg!
           </div>
         ) : (
           orders.map((order) => {
@@ -78,19 +78,18 @@ export default function KitchenView() {
               >
                 <div className="flex justify-between items-start mb-4 pb-4 border-b border-black/10">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-wider opacity-70 block mb-1">Table</span>
+                    <span className="text-xs font-bold uppercase tracking-wider opacity-70 block mb-1">Tafel</span>
                     <span className="text-3xl font-black">{order.tableNumber}</span>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1 text-sm font-bold opacity-70 justify-end mb-1">
                       <Clock className="w-4 h-4" />
-                      {formatDistanceToNow(order.timestamp)}
+                      {format(new Date(order.timestamp), 'HH:mm')}
                     </div>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider ${
-                      order.status === 'in-progress' ? 'bg-black/10' : 'bg-black/5'
-                    }`}>
-                      {order.status}
-                    </span>
+                    <div className="flex items-center gap-1 text-xs font-bold opacity-50 justify-end mb-2">
+                      <Hash className="w-3 h-3" />
+                      {order.id.slice(0, 6)}
+                    </div>
                   </div>
                 </div>
 
@@ -106,22 +105,13 @@ export default function KitchenView() {
                 </div>
 
                 <div className="flex gap-2 mt-auto pt-4 border-t border-black/10">
-                  {order.status === 'pending' ? (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'in-progress')}
-                      className="flex-1 bg-black/10 hover:bg-black/20 text-black font-bold py-3 rounded-xl transition-colors"
-                    >
-                      Start Preparing
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'completed')}
-                      className="flex-1 bg-black text-white hover:bg-black/80 font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      Mark Complete
-                    </button>
-                  )}
+                  <button
+                    onClick={() => updateOrderStatus(order.id, 'completed')}
+                    className="flex-1 bg-black text-white hover:bg-black/80 font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    Afgewerkt
+                  </button>
                 </div>
               </div>
             );
