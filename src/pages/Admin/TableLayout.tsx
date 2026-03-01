@@ -1,10 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { useTables } from '../../hooks/useTables';
+import { useOrders } from '../../hooks/useOrders';
 import { Table } from '../../types';
-import { Plus, Trash2, Move, Save, X } from 'lucide-react';
+import { Plus, Trash2, Move, Save, X, Clock, Utensils, History as HistoryIcon } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function TableLayout() {
   const { tables, addTable, updateTable, deleteTable, loading } = useTables();
+  const { orders: allOrders } = useOrders();
   const [isAdding, setIsAdding] = useState(false);
   const [newTable, setNewTable] = useState({ number: '', seats: 2 });
   const [draggingTable, setDraggingTable] = useState<string | null>(null);
@@ -207,34 +210,34 @@ export default function TableLayout() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              <button
-                onClick={() => handleUpdateStatus('available')}
-                className={`w-full py-4 rounded-2xl font-bold border-2 transition-all ${
-                  selectedTable.status === 'available' 
-                    ? 'border-neutral-900 bg-neutral-900 text-white' 
-                    : 'border-neutral-100 hover:border-neutral-200 text-neutral-600'
-                }`}
-              >
-                Available
-              </button>
-              <button
-                onClick={() => handleUpdateStatus('occupied')}
-                className={`w-full py-4 rounded-2xl font-bold border-2 transition-all ${
-                  selectedTable.status === 'occupied' 
-                    ? 'border-red-500 bg-red-500 text-white' 
-                    : 'border-neutral-100 hover:border-red-100 text-red-600'
-                }`}
-              >
-                Occupied
-              </button>
-              <div className="space-y-2">
+            <div className="space-y-6">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleUpdateStatus('available')}
+                  className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all text-xs uppercase tracking-widest ${
+                    selectedTable.status === 'available' 
+                      ? 'border-neutral-900 bg-neutral-900 text-white' 
+                      : 'border-neutral-100 hover:border-neutral-200 text-neutral-600'
+                  }`}
+                >
+                  Available
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus('occupied')}
+                  className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all text-xs uppercase tracking-widest ${
+                    selectedTable.status === 'occupied' 
+                      ? 'border-red-500 bg-red-500 text-white' 
+                      : 'border-neutral-100 hover:border-red-100 text-red-600'
+                  }`}
+                >
+                  Occupied
+                </button>
                 <button
                   onClick={() => {
                     const time = prompt('Reservation time (e.g. 19:00)?', selectedTable.reservationTime || '');
                     if (time !== null) handleUpdateStatus('reserved', time);
                   }}
-                  className={`w-full py-4 rounded-2xl font-bold border-2 transition-all ${
+                  className={`flex-1 py-3 rounded-xl font-bold border-2 transition-all text-xs uppercase tracking-widest ${
                     selectedTable.status === 'reserved' 
                       ? 'border-amber-500 bg-amber-500 text-white' 
                       : 'border-neutral-100 hover:border-amber-100 text-amber-600'
@@ -242,11 +245,67 @@ export default function TableLayout() {
                 >
                   Reserved
                 </button>
-                {selectedTable.status === 'reserved' && (
-                  <p className="text-center text-xs font-medium text-amber-600">
-                    Reserved for: {selectedTable.reservationTime || 'Not set'}
-                  </p>
-                )}
+              </div>
+
+              {/* Ongoing Orders */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
+                  <Utensils className="w-3 h-3" /> Ongoing Orders
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                  {allOrders
+                    .filter(o => o.tableNumber === selectedTable.number && ['pending', 'in-progress'].includes(o.status))
+                    .map(order => (
+                      <div key={order.id} className="bg-neutral-50 p-3 rounded-xl border border-neutral-100">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-[10px] font-black uppercase text-neutral-400">{format(new Date(order.timestamp), 'HH:mm')}</span>
+                          <span className="bg-amber-100 text-amber-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">{order.status}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {order.items.map((item, i) => (
+                            <div key={i} className="text-xs font-bold text-neutral-700 flex justify-between">
+                              <span>{item.quantity}x {item.name}</span>
+                              <span className="text-neutral-400">${(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  {allOrders.filter(o => o.tableNumber === selectedTable.number && ['pending', 'in-progress'].includes(o.status)).length === 0 && (
+                    <p className="text-xs text-neutral-400 italic">No ongoing orders.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Recent History (Last Hour) */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 flex items-center gap-2">
+                  <HistoryIcon className="w-3 h-3" /> Last Hour
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                  {allOrders
+                    .filter(o => {
+                      const isRecent = (Date.now() - o.timestamp) < 3600000;
+                      return o.tableNumber === selectedTable.number && o.status === 'completed' && isRecent;
+                    })
+                    .map(order => (
+                      <div key={order.id} className="bg-neutral-50 p-3 rounded-xl border border-neutral-100 opacity-70">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-[10px] font-black uppercase text-neutral-400">{format(new Date(order.timestamp), 'HH:mm')}</span>
+                          <span className="text-[10px] font-black text-neutral-900">${order.total.toFixed(2)}</span>
+                        </div>
+                        <p className="text-[10px] font-medium text-neutral-500 truncate">
+                          {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                        </p>
+                      </div>
+                    ))}
+                  {allOrders.filter(o => {
+                    const isRecent = (Date.now() - o.timestamp) < 3600000;
+                    return o.tableNumber === selectedTable.number && o.status === 'completed' && isRecent;
+                  }).length === 0 && (
+                    <p className="text-xs text-neutral-400 italic">No recent history.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

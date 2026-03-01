@@ -10,9 +10,10 @@ export default function KitchenView() {
   const [view, setView] = useState<'active' | 'completed'>('active');
   const [filter, setFilter] = useState<'all' | 'food' | 'drinks'>('all');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const { orders: allOrders, loading } = useOrders(view === 'active' ? ['pending', 'in-progress'] : ['completed']);
   const [now, setNow] = useState(Date.now());
-  const prevOrdersCount = useRef(0);
+  const prevOrdersCount = useRef<number | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000); // Live timer every second
@@ -20,12 +21,22 @@ export default function KitchenView() {
   }, []);
 
   useEffect(() => {
-    if (view === 'active' && allOrders.length > prevOrdersCount.current && soundEnabled) {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      audio.play().catch(e => console.log('Audio play blocked', e));
+    if (!loading && view === 'active' && soundEnabled && audioUnlocked) {
+      if (prevOrdersCount.current !== null && allOrders.length > prevOrdersCount.current) {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(e => console.log('Audio play blocked', e));
+      }
+      prevOrdersCount.current = allOrders.length;
+    } else if (!loading) {
+      prevOrdersCount.current = allOrders.length;
     }
-    prevOrdersCount.current = allOrders.length;
-  }, [allOrders.length, view, soundEnabled]);
+  }, [allOrders.length, view, soundEnabled, loading, audioUnlocked]);
+
+  const unlockAudio = () => {
+    setAudioUnlocked(true);
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch(() => {}); // Silent play to unlock
+  };
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     if (!db) return;
@@ -101,7 +112,7 @@ export default function KitchenView() {
             </div>
           </div>
           <button 
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => soundEnabled ? setSoundEnabled(false) : unlockAudio()}
             className="lg:hidden p-2 text-neutral-400 hover:text-white transition-colors"
           >
             {soundEnabled ? <Bell className="w-6 h-6" /> : <BellOff className="w-6 h-6" />}
@@ -109,6 +120,14 @@ export default function KitchenView() {
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
+          {!audioUnlocked && (
+            <button 
+              onClick={unlockAudio}
+              className="bg-amber-500 text-black px-4 py-2 rounded-xl text-xs font-black animate-pulse"
+            >
+              ACTIVATE SOUND
+            </button>
+          )}
           <div className="flex bg-neutral-800 p-1 rounded-xl">
             <button
               onClick={() => setView('active')}
@@ -160,11 +179,11 @@ export default function KitchenView() {
           </div>
 
           <button 
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => soundEnabled ? setSoundEnabled(false) : unlockAudio()}
             className="hidden lg:flex items-center gap-2 px-4 py-2 bg-neutral-800 rounded-xl text-neutral-400 hover:text-white transition-colors"
           >
             {soundEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
-            <span className="text-xs font-bold">{soundEnabled ? 'AAN' : 'UIT'}</span>
+            <span className="text-xs font-bold">{soundEnabled ? (audioUnlocked ? 'AAN' : 'READY') : 'UIT'}</span>
           </button>
         </div>
       </header>
@@ -228,9 +247,11 @@ export default function KitchenView() {
                         <Clock className="w-3.5 h-3.5" />
                         {format(new Date(order.timestamp), 'HH:mm:ss')}
                       </div>
-                      <div className={`text-2xl font-black font-mono tabular-nums ${waitTimeMinutes >= 10 && !isPriority ? 'animate-pulse text-red-500' : ''}`}>
-                        {waitTimeMinutes.toString().padStart(2, '0')}:{waitTimeSeconds.toString().padStart(2, '0')}
-                      </div>
+                      {view === 'active' && (
+                        <div className={`text-2xl font-black font-mono tabular-nums ${waitTimeMinutes >= 10 && !isPriority ? 'animate-pulse text-red-500' : ''}`}>
+                          {waitTimeMinutes.toString().padStart(2, '0')}:{waitTimeSeconds.toString().padStart(2, '0')}
+                        </div>
+                      )}
                     </div>
                   </div>
 
