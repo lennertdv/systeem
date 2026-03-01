@@ -8,7 +8,11 @@ import { Elements } from '@stripe/react-stripe-js';
 import CheckoutForm from './CheckoutForm';
 
 // Initialize Stripe outside of component to avoid recreating it
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_dummy');
+const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+if (!stripePublicKey) {
+  console.warn('VITE_STRIPE_PUBLIC_KEY is not set. Payment will not work correctly.');
+}
+const stripePromise = loadStripe(stripePublicKey || 'pk_test_dummy');
 
 export default function CustomerView() {
   const { menuItems, categories, loading: menuLoading } = useMenu();
@@ -52,20 +56,54 @@ export default function CustomerView() {
 
   const startCheckout = async () => {
     if (!tableNumber || cart.length === 0) return;
+    
+    if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+      alert('Stripe public key is missing. Please add VITE_STRIPE_PUBLIC_KEY to your Vercel environment variables.');
+      return;
+    }
+
     setIsInitializingPayment(true);
     
     try {
-      const response = await fetch('/api/create-payment-intent', {
+      const apiUrl = `${window.location.origin}/api/create-payment-intent`;
+      console.log('Starting checkout with URL:', apiUrl, 'Amount:', total);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: total }),
       });
       
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage = `Server responded with ${response.status}`;
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // Not JSON, use the status text or first bit of body
+          if (text.includes('Method Not Allowed')) {
+            errorMessage = 'The payment server does not allow this request method (405). Please check your API configuration.';
+          } else if (text.length > 0) {
+            errorMessage = `Server Error: ${text.substring(0, 100)}...`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error('The server returned an invalid response format (not JSON).');
+      }
+
       const data = await response.json();
-      if (data.clientSecret) {
+      
+      if (data.clientSecret && typeof data.clientSecret === 'string') {
+        console.log('Payment intent created successfully');
         setClientSecret(data.clientSecret);
       } else {
-        alert('Failed to initialize payment. Please try again.');
+        console.error('Invalid response data:', data);
+        throw new Error('The server did not return a valid client secret.');
       }
     } catch (error: any) {
       console.error('Error starting checkout:', error);

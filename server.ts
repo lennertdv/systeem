@@ -37,19 +37,32 @@ async function startServer() {
     try {
       const { amount, currency = 'usd' } = req.body;
       
+      if (amount === undefined || amount === null || isNaN(amount)) {
+        return res.status(400).json({ error: 'Invalid or missing amount' });
+      }
+
+      const amountInCents = Math.round(amount * 100);
+      if (amountInCents < 50) {
+        return res.status(400).json({ error: 'Amount must be at least $0.50' });
+      }
+
       const stripe = getStripe();
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Stripe expects cents
+        amount: amountInCents,
         currency,
         automatic_payment_methods: {
           enabled: true,
         },
       });
 
+      if (!paymentIntent.client_secret) {
+        throw new Error('Stripe failed to generate a client secret');
+      }
+
       res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error: any) {
       console.error("Stripe error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   });
 
