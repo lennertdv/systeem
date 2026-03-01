@@ -84,13 +84,22 @@ export default function RestaurantManagement() {
         body: JSON.stringify(formData)
       });
 
-      const result = await response.json();
+      let result;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || 'Server returned a non-JSON response');
+      }
+
       if (!response.ok) throw new Error(result.error || 'Failed to create restaurant');
 
       await fetchRestaurants();
       setIsAdding(false);
       setFormData({ name: '', slug: '', email: '', password: '' });
     } catch (err: any) {
+      console.error("Create restaurant error:", err);
       setFormError(err.message);
     } finally {
       setFormLoading(false);

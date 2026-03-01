@@ -11,17 +11,60 @@ dotenv.config();
 let adminApp: admin.app.App | null = null;
 function getAdmin(): admin.app.App {
   if (!adminApp) {
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!serviceAccount) {
+      console.error('SUPER_ADMIN_ERROR: FIREBASE_SERVICE_ACCOUNT environment variable is missing');
       throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required');
     }
+
     try {
-      const cert = JSON.parse(serviceAccount);
+      console.log(`[SUPER_ADMIN_DEBUG] Service account string length: ${serviceAccount.length}`);
+      console.log(`[SUPER_ADMIN_DEBUG] Starts with: ${serviceAccount.substring(0, 20)}...`);
+
+      // 1. Handle potential base64 encoding
+      if (!serviceAccount.trim().startsWith('{')) {
+        try {
+          const decoded = Buffer.from(serviceAccount, 'base64').toString('utf8');
+          if (decoded.trim().startsWith('{')) {
+            serviceAccount = decoded;
+            console.log('[SUPER_ADMIN_DEBUG] Successfully decoded base64 service account');
+          }
+        } catch (e) {
+          // Not base64 or failed to decode, continue
+        }
+      }
+
+      // 2. Parse JSON
+      let cert;
+      try {
+        cert = JSON.parse(serviceAccount);
+      } catch (e) {
+        // Try cleaning the string (remove potential wrapping quotes or escaped characters)
+        const cleaned = serviceAccount.trim().replace(/^["']|["']$/g, '').replace(/\\"/g, '"');
+        cert = JSON.parse(cleaned);
+        console.log('[SUPER_ADMIN_DEBUG] Parsed JSON after cleaning string');
+      }
+      
+      // 3. Fix Private Key Formatting
+      if (cert.private_key && typeof cert.private_key === 'string') {
+        // Replace literal \n with actual newlines, and handle double-escaped backslashes
+        cert.private_key = cert.private_key
+          .replace(/\\n/g, '\n')
+          .replace(/\n\n/g, '\n'); // Remove accidental double newlines
+        
+        // Ensure it has the correct headers if they were stripped
+        if (!cert.private_key.includes('-----BEGIN PRIVATE KEY-----')) {
+          cert.private_key = `-----BEGIN PRIVATE KEY-----\n${cert.private_key}\n-----END PRIVATE KEY-----\n`;
+        }
+      }
+
       adminApp = admin.initializeApp({
         credential: admin.credential.cert(cert)
       });
-    } catch (e) {
-      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON');
+      console.log('SUPER_ADMIN: Firebase Admin initialized successfully');
+    } catch (e: any) {
+      console.error('SUPER_ADMIN_ERROR: Failed to initialize Firebase Admin:', e.message);
+      throw new Error(`Invalid FIREBASE_SERVICE_ACCOUNT: ${e.message}`);
     }
   }
   return adminApp;
@@ -90,9 +133,20 @@ async function startServer() {
   app.post("/api/super-admin/create-restaurant", async (req, res) => {
     try {
       const { name, slug, email, password } = req.body;
+      
+      if (!name || !slug || !email || !password) {
+        return res.status(400).json({ error: 'All fields are required' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+
       const admin = getAdmin();
       const auth = admin.auth();
       const db = admin.firestore();
+
+      console.log(`SUPER_ADMIN: Creating restaurant ${name} (${slug}) for ${email}`);
 
       // 1. Create Auth User
       const userRecord = await auth.createUser({
