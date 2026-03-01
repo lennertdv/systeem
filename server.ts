@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import Stripe from "stripe";
 import cors from "cors";
 import dotenv from "dotenv";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 
 dotenv.config();
 
@@ -71,8 +71,9 @@ function getAdmin(): admin.app.App {
 }
 
 async function startServer() {
-  const app = express();
-  const PORT = 3000;
+  try {
+    const app = express();
+    const PORT = 3000;
 
   app.use(cors());
   app.use(express.json());
@@ -130,11 +131,21 @@ async function startServer() {
     }
   });
 
+  app.get("/api/super-admin/health", (req, res) => {
+    res.json({ status: "super-admin-ok" });
+  });
+
+  app.get("/api/super-admin/health", (req, res) => {
+    res.json({ status: "super-admin-ok" });
+  });
+
   app.post("/api/super-admin/create-restaurant", async (req, res) => {
+    console.log(`[SUPER_ADMIN] Received request to create restaurant: ${req.body?.name}`);
     try {
       const { name, slug, email, password } = req.body;
       
       if (!name || !slug || !email || !password) {
+        console.warn('[SUPER_ADMIN] Missing required fields');
         return res.status(400).json({ error: 'All fields are required' });
       }
 
@@ -204,6 +215,9 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  } catch (error) {
+    console.error("FATAL SERVER ERROR:", error);
+  }
 }
 
 startServer();
