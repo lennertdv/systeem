@@ -24,9 +24,18 @@ export function useOrders(filterStatus?: string[]) {
       
       snapshot.forEach((doc) => {
         const data = doc.data();
+        // Convert Firestore Timestamp to number if necessary
+        const timestamp = data.timestamp?.toMillis ? data.timestamp.toMillis() : (data.timestamp || Date.now());
+        const completedAt = data.completedAt?.toMillis ? data.completedAt.toMillis() : data.completedAt;
+
         // Filter in memory to avoid complex Firestore index requirements
         if (!statuses || statuses.includes(data.status)) {
-          newOrders.push({ id: doc.id, ...data } as Order);
+          newOrders.push({ 
+            id: doc.id, 
+            ...data,
+            timestamp,
+            completedAt
+          } as Order);
         }
       });
       setOrders(newOrders);

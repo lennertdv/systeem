@@ -292,7 +292,7 @@ export default function TableLayout() {
                       <div key={order.id} className="bg-neutral-50 p-3 rounded-xl border border-neutral-100 opacity-70">
                         <div className="flex justify-between items-start mb-2">
                           <span className="text-[10px] font-black uppercase text-neutral-400">{format(new Date(order.timestamp), 'HH:mm')}</span>
-                          <span className="text-[10px] font-black text-neutral-900">${order.total.toFixed(2)}</span>
+                          <span className="text-[10px] font-black text-neutral-900">${(order.totalPrice || 0).toFixed(2)}</span>
                         </div>
                         <p className="text-[10px] font-medium text-neutral-500 truncate">
                           {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}

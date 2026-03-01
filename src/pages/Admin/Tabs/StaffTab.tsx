@@ -30,7 +30,9 @@ export default function StaffTab() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const members: StaffMember[] = [];
       snapshot.forEach((doc) => {
-        members.push({ id: doc.id, ...doc.data() } as StaffMember);
+        const data = doc.data();
+        const joinedAt = data.joinedAt?.toMillis ? data.joinedAt.toMillis() : (data.joinedAt || Date.now());
+        members.push({ id: doc.id, ...data, joinedAt } as StaffMember);
       });
       setStaff(members);
       setLoading(false);
