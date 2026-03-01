@@ -1,19 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Order } from '../../types';
-import { formatDistanceToNow, format } from 'date-fns';
-import { ChefHat, CheckCircle2, Clock, Hash } from 'lucide-react';
+import { format } from 'date-fns';
+import { ChefHat, CheckCircle2, Clock, History, LayoutGrid, Utensils, Beer, Bell, BellOff } from 'lucide-react';
 
 export default function KitchenView() {
-  const { orders, loading } = useOrders(['pending', 'in-progress']);
+  const [view, setView] = useState<'active' | 'completed'>('active');
+  const [filter, setFilter] = useState<'all' | 'food' | 'drinks'>('all');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const { orders: allOrders, loading } = useOrders(view === 'active' ? ['pending', 'in-progress'] : ['completed']);
   const [now, setNow] = useState(Date.now());
+  const prevOrdersCount = useRef(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 10000); // Update every 10 seconds for smoother timer
+    const interval = setInterval(() => setNow(Date.now()), 1000); // Live timer every second
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (view === 'active' && allOrders.length > prevOrdersCount.current && soundEnabled) {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.play().catch(e => console.log('Audio play blocked', e));
+    }
+    prevOrdersCount.current = allOrders.length;
+  }, [allOrders.length, view, soundEnabled]);
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     if (!db) return;
@@ -28,11 +40,47 @@ export default function KitchenView() {
     }
   };
 
-  const getWaitTimeColor = (timestamp: number) => {
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean[]>>({});
+
+  const toggleItemCheck = (orderId: string, itemIdx: number) => {
+    setCheckedItems(prev => {
+      const orderChecks = prev[orderId] || [];
+      const newChecks = [...orderChecks];
+      newChecks[itemIdx] = !newChecks[itemIdx];
+      return { ...prev, [orderId]: newChecks };
+    });
+  };
+
+  const togglePriority = async (orderId: string, currentPriority: boolean) => {
+    if (!db) return;
+    await updateDoc(doc(db, 'orders', orderId), { priority: !currentPriority });
+  };
+
+  const filteredOrders = allOrders.filter(order => {
+    if (filter === 'all') return true;
+    if (filter === 'food') return order.items.some(item => !item.category || item.category.toLowerCase() !== 'drinks');
+    if (filter === 'drinks') return order.items.some(item => item.category && item.category.toLowerCase() === 'drinks');
+    return true;
+  });
+
+  const prepSummary = useMemo(() => {
+    if (view !== 'active') return [];
+    const summary: Record<string, number> = {};
+    filteredOrders.forEach(order => {
+      order.items.forEach(item => {
+        summary[item.name] = (summary[item.name] || 0) + item.quantity;
+      });
+    });
+    return Object.entries(summary).sort((a, b) => b[1] - a[1]);
+  }, [filteredOrders, view]);
+
+  const getWaitTimeColor = (timestamp: number, priority?: boolean) => {
+    if (view === 'completed') return 'bg-neutral-800 border-neutral-700 text-neutral-400';
+    if (priority) return 'bg-purple-500/20 border-purple-500/50 text-purple-100 ring-2 ring-purple-500/50';
     const diffMinutes = (now - timestamp) / 1000 / 60;
-    if (diffMinutes < 5) return 'bg-emerald-50 border-emerald-200 text-emerald-900';
-    if (diffMinutes < 10) return 'bg-amber-50 border-amber-200 text-amber-900';
-    return 'bg-red-50 border-red-200 text-red-900';
+    if (diffMinutes < 5) return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
+    if (diffMinutes < 10) return 'bg-amber-500/10 border-amber-500/20 text-amber-400';
+    return 'bg-red-500/10 border-red-500/20 text-red-400';
   };
 
   if (loading) {
@@ -41,85 +89,222 @@ export default function KitchenView() {
 
   return (
     <div className="min-h-screen bg-neutral-900 text-neutral-100 p-6 font-sans">
-      <header className="flex items-center justify-between mb-8 pb-4 border-b border-neutral-800">
-        <div className="flex items-center gap-3">
-          <ChefHat className="w-8 h-8 text-neutral-400" />
-          <h1 className="text-2xl font-bold tracking-tight">Kitchen Display System</h1>
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 pb-6 border-b border-neutral-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-neutral-800 p-2 rounded-xl">
+              <ChefHat className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-white">KITCHEN DISPLAY</h1>
+              <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Live Order Management</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="lg:hidden p-2 text-neutral-400 hover:text-white transition-colors"
+          >
+            {soundEnabled ? <Bell className="w-6 h-6" /> : <BellOff className="w-6 h-6" />}
+          </button>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4 text-sm font-medium text-neutral-400 bg-neutral-800 px-4 py-2 rounded-xl hidden md:flex">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> &lt; 5m</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> 5-10m</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div> &gt; 10m</div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex bg-neutral-800 p-1 rounded-xl">
+            <button
+              onClick={() => setView('active')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                view === 'active' ? 'bg-white text-black shadow-lg' : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              ACTIEF ({allOrders.filter(o => ['pending', 'in-progress'].includes(o.status)).length})
+            </button>
+            <button
+              onClick={() => setView('completed')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                view === 'completed' ? 'bg-white text-black shadow-lg' : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              HISTORIE
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <a href="/" className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition-colors">
-              Menu
-            </a>
-            <a href="/admin" className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition-colors">
-              Admin
-            </a>
+
+          <div className="h-8 w-px bg-neutral-800 hidden md:block" />
+
+          <div className="flex bg-neutral-800 p-1 rounded-xl">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                filter === 'all' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              ALLES
+            </button>
+            <button
+              onClick={() => setFilter('food')}
+              className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                filter === 'food' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <Utensils className="w-3 h-3" /> ETEN
+            </button>
+            <button
+              onClick={() => setFilter('drinks')}
+              className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                filter === 'drinks' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <Beer className="w-3 h-3" /> DRANK
+            </button>
           </div>
+
+          <button 
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="hidden lg:flex items-center gap-2 px-4 py-2 bg-neutral-800 rounded-xl text-neutral-400 hover:text-white transition-colors"
+          >
+            {soundEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+            <span className="text-xs font-bold">{soundEnabled ? 'AAN' : 'UIT'}</span>
+          </button>
         </div>
       </header>
 
-      <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
-        {orders.length === 0 ? (
-          <div className="col-span-full text-center py-20 text-neutral-500 text-xl font-medium">
-            Geen actieve bestellingen. De keuken is leeg!
-          </div>
-        ) : (
-          orders.map((order) => {
-            const colorClass = getWaitTimeColor(order.timestamp);
-            const waitTimeMinutes = Math.floor((now - order.timestamp) / 1000 / 60);
-            const waitTimeSeconds = Math.floor(((now - order.timestamp) / 1000) % 60);
-            
-            return (
-              <div 
-                key={order.id} 
-                className={`rounded-2xl border-2 p-5 shadow-lg flex flex-col h-full transition-colors duration-500 ${colorClass}`}
-              >
-                <div className="flex justify-between items-start mb-4 pb-4 border-b border-black/10">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider opacity-70 block mb-1">Tafel</span>
-                    <span className="text-3xl font-black">{order.tableNumber}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-1 text-sm font-bold opacity-70 justify-end mb-1">
-                      <Clock className="w-4 h-4" />
-                      {format(new Date(order.timestamp), 'HH:mm')}
-                    </div>
-                    <div className="text-xl font-black flex items-center gap-1 justify-end">
-                      {waitTimeMinutes}:{waitTimeSeconds.toString().padStart(2, '0')}
-                    </div>
-                  </div>
+      <div className="flex flex-col xl:flex-row gap-8">
+        {/* Prep Summary Sidebar */}
+        {view === 'active' && prepSummary.length > 0 && (
+          <aside className="xl:w-64 shrink-0 bg-neutral-800/50 rounded-[2rem] p-6 border border-neutral-800 h-fit sticky top-32">
+            <div className="flex items-center gap-2 mb-6">
+              <Utensils className="w-5 h-5 text-neutral-400" />
+              <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400">Prep Summary</h2>
+            </div>
+            <div className="space-y-3">
+              {prepSummary.map(([name, count]) => (
+                <div key={name} className="flex items-center justify-between bg-neutral-900/50 p-3 rounded-xl border border-neutral-800">
+                  <span className="text-sm font-bold text-neutral-300 truncate mr-2">{name}</span>
+                  <span className="bg-white text-black text-xs font-black px-2 py-1 rounded-md min-w-[1.5rem] text-center">
+                    {count}
+                  </span>
                 </div>
-
-                <div className="flex-1 mb-6">
-                  <ul className="space-y-3">
-                    {order.items.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-3 text-lg font-medium">
-                        <span className="font-bold opacity-50">{item.quantity}x</span>
-                        <span className="leading-tight">{item.name}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="flex gap-2 mt-auto pt-4 border-t border-black/10">
-                  <button
-                    onClick={() => updateOrderStatus(order.id, 'completed')}
-                    className="flex-1 bg-black text-white hover:bg-black/80 font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    Afgewerkt
-                  </button>
-                </div>
-              </div>
-            );
-          })
+              ))}
+            </div>
+          </aside>
         )}
-      </main>
+
+        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+          {filteredOrders.length === 0 ? (
+            <div className="col-span-full text-center py-32">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-neutral-800 rounded-full mb-6">
+                <ChefHat className="w-10 h-10 text-neutral-600" />
+              </div>
+              <h2 className="text-xl font-bold text-neutral-400">Geen bestellingen gevonden</h2>
+              <p className="text-neutral-600 mt-2">Zodra er een bestelling binnenkomt, verschijnt deze hier.</p>
+            </div>
+          ) : (
+            filteredOrders.map((order) => {
+              const colorClass = getWaitTimeColor(order.timestamp, (order as any).priority);
+              const waitTimeMs = now - order.timestamp;
+              const waitTimeMinutes = Math.floor(waitTimeMs / 1000 / 60);
+              const waitTimeSeconds = Math.floor((waitTimeMs / 1000) % 60);
+              const isPriority = (order as any).priority;
+              
+              return (
+                <div 
+                  key={order.id} 
+                  className={`rounded-3xl border-2 p-6 shadow-2xl flex flex-col h-full transition-all duration-300 ${colorClass} backdrop-blur-sm relative overflow-hidden group`}
+                >
+                  {isPriority && (
+                    <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">
+                      PRIORITY
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-start mb-6 pb-4 border-b border-white/10">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 block mb-1">Tafel</span>
+                      <span className="text-5xl font-black tracking-tighter">{order.tableNumber}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-1.5 text-xs font-black opacity-50 justify-end mb-2">
+                        <Clock className="w-3.5 h-3.5" />
+                        {format(new Date(order.timestamp), 'HH:mm:ss')}
+                      </div>
+                      <div className={`text-2xl font-black font-mono tabular-nums ${waitTimeMinutes >= 10 && !isPriority ? 'animate-pulse text-red-500' : ''}`}>
+                        {waitTimeMinutes.toString().padStart(2, '0')}:{waitTimeSeconds.toString().padStart(2, '0')}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 mb-8">
+                    <ul className="space-y-4">
+                      {order.items
+                        .filter(item => {
+                          if (filter === 'all') return true;
+                          if (filter === 'food') return !item.category || item.category.toLowerCase() !== 'drinks';
+                          if (filter === 'drinks') return item.category && item.category.toLowerCase() === 'drinks';
+                          return true;
+                        })
+                        .map((item, idx) => {
+                          const isChecked = checkedItems[order.id]?.[idx];
+                          return (
+                            <li 
+                              key={idx} 
+                              className={`flex items-start gap-4 cursor-pointer transition-opacity ${isChecked ? 'opacity-30' : 'opacity-100'}`}
+                              onClick={() => toggleItemCheck(order.id, idx)}
+                            >
+                              <div className={`px-2 py-1 rounded-lg text-sm font-black min-w-[2.5rem] text-center transition-colors ${isChecked ? 'bg-white/5' : 'bg-white/10'}`}>
+                                {item.quantity}x
+                              </div>
+                              <div className="flex flex-col">
+                                <span className={`text-xl font-bold leading-tight ${isChecked ? 'line-through' : ''}`}>{item.name}</span>
+                                {item.category && (
+                                  <span className="text-[10px] font-black uppercase tracking-widest opacity-40 mt-1">
+                                    {item.category}
+                                  </span>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  </div>
+
+                  <div className="mt-auto pt-6 border-t border-white/10 flex gap-3">
+                    {view === 'active' && (
+                      <>
+                        <button
+                          onClick={() => togglePriority(order.id, isPriority)}
+                          className={`p-4 rounded-2xl transition-all active:scale-95 border-2 ${
+                            isPriority 
+                              ? 'bg-purple-500 border-purple-400 text-white' 
+                              : 'bg-transparent border-white/10 text-white/50 hover:text-white hover:border-white/30'
+                          }`}
+                          title="Toggle Priority"
+                        >
+                          <Bell className="w-6 h-6" />
+                        </button>
+                        <button
+                          onClick={() => updateOrderStatus(order.id, 'completed')}
+                          className="flex-1 bg-white text-black hover:bg-neutral-200 font-black py-4 rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-3 shadow-xl"
+                        >
+                          <CheckCircle2 className="w-6 h-6" />
+                          AFWERKEN
+                        </button>
+                      </>
+                    )}
+                    {view === 'completed' && (
+                      <div className="w-full text-center">
+                        <span className="text-xs font-bold opacity-50 italic">
+                          Afgewerkt om {order.completedAt ? format(new Date(order.completedAt), 'HH:mm') : 'onbekend'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </main>
+      </div>
     </div>
   );
 }

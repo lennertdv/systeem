@@ -4,10 +4,19 @@ import { db } from '../lib/firebase';
 
 export interface StoreSettings {
   isOpen: boolean;
+  restaurantName?: string;
+  logoUrl?: string;
+  currency?: string;
+  contactEmail?: string;
+  address?: string;
 }
 
 export function useStoreSettings() {
-  const [settings, setSettings] = useState<StoreSettings>({ isOpen: true });
+  const [settings, setSettings] = useState<StoreSettings>({ 
+    isOpen: true,
+    restaurantName: 'Bistro Live',
+    currency: '€'
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
