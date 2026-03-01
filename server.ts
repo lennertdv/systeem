@@ -3,8 +3,29 @@ import { createServer as createViteServer } from "vite";
 import Stripe from "stripe";
 import cors from "cors";
 import dotenv from "dotenv";
+import * as admin from "firebase-admin";
 
 dotenv.config();
+
+// Initialize Firebase Admin lazily
+let adminApp: admin.app.App | null = null;
+function getAdmin(): admin.app.App {
+  if (!adminApp) {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!serviceAccount) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required');
+    }
+    try {
+      const cert = JSON.parse(serviceAccount);
+      adminApp = admin.initializeApp({
+        credential: admin.credential.cert(cert)
+      });
+    } catch (e) {
+      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON');
+    }
+  }
+  return adminApp;
+}
 
 async function startServer() {
   const app = express();
@@ -62,6 +83,51 @@ async function startServer() {
       res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error: any) {
       console.error("Stripe error:", error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  });
+
+  app.post("/api/super-admin/create-restaurant", async (req, res) => {
+    try {
+      const { name, slug, email, password } = req.body;
+      const admin = getAdmin();
+      const auth = admin.auth();
+      const db = admin.firestore();
+
+      // 1. Create Auth User
+      const userRecord = await auth.createUser({
+        email,
+        password,
+        displayName: name,
+      });
+
+      // 2. Create Restaurant Info
+      await db.collection('restaurants').doc(slug).collection('info').doc('general').set({
+        name,
+        slug,
+        ownerEmail: email,
+        ownerUid: userRecord.uid,
+        active: true,
+        createdAt: Date.now(),
+        plan: 'starter'
+      });
+
+      // 3. Create User Record
+      await db.collection('users').doc(userRecord.uid).set({
+        role: 'tenant',
+        restaurantSlug: slug,
+        email
+      });
+
+      // 4. Seed empty menu
+      await db.collection('restaurants').doc(slug).collection('categories').add({
+        name: 'Main Menu',
+        order: 1
+      });
+
+      res.json({ success: true, uid: userRecord.uid });
+    } catch (error: any) {
+      console.error("Super Admin error:", error);
       res.status(500).json({ error: error.message || 'Internal server error' });
     }
   });
