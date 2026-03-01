@@ -67,9 +67,9 @@ export default function CustomerView() {
       } else {
         alert('Failed to initialize payment. Please try again.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting checkout:', error);
-      alert('Failed to connect to payment server.');
+      alert(`Failed to connect to payment server: ${error.message || 'Unknown error'}`);
     } finally {
       setIsInitializingPayment(false);
     }
