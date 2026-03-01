@@ -98,6 +98,10 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  app.get("/api/super-admin/health", (req, res) => {
+    res.json({ status: "super-admin-ok" });
+  });
+
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
       const { amount, currency = 'usd' } = req.body;
@@ -131,14 +135,6 @@ async function startServer() {
     }
   });
 
-  app.get("/api/super-admin/health", (req, res) => {
-    res.json({ status: "super-admin-ok" });
-  });
-
-  app.get("/api/super-admin/health", (req, res) => {
-    res.json({ status: "super-admin-ok" });
-  });
-
   app.post("/api/super-admin/create-restaurant", async (req, res) => {
     console.log(`[SUPER_ADMIN] Received request to create restaurant: ${req.body?.name}`);
     try {
@@ -153,9 +149,9 @@ async function startServer() {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
       }
 
-      const admin = getAdmin();
-      const auth = admin.auth();
-      const db = admin.firestore();
+      const adminInstance = getAdmin();
+      const auth = adminInstance.auth();
+      const db = adminInstance.firestore();
 
       console.log(`SUPER_ADMIN: Creating restaurant ${name} (${slug}) for ${email}`);
 
