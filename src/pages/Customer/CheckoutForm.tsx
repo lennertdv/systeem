@@ -50,6 +50,11 @@ export default function CheckoutForm({ cart, total, tableNumber, onSuccess, onCa
           timestamp: Date.now(),
           paymentIntentId: paymentIntent.id,
         });
+        
+        // Clear local storage for this order
+        localStorage.removeItem('bistro_cart');
+        localStorage.removeItem('bistro_table');
+        
         onSuccess();
       } catch (err) {
         console.error('Error saving order:', err);

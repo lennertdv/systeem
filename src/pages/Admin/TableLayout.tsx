@@ -1,0 +1,182 @@
+import React, { useState, useRef } from 'react';
+import { useTables } from '../../hooks/useTables';
+import { Table } from '../../types';
+import { Plus, Trash2, Move, Save, X } from 'lucide-react';
+
+export default function TableLayout() {
+  const { tables, addTable, updateTable, deleteTable, loading } = useTables();
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTable, setNewTable] = useState({ number: '', seats: 2 });
+  const [draggingTable, setDraggingTable] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleAddTable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await addTable({
+      ...newTable,
+      x: 50,
+      y: 50,
+      status: 'available'
+    });
+    setIsAdding(false);
+    setNewTable({ number: '', seats: 2 });
+  };
+
+  const handleDragStart = (id: string) => {
+    setDraggingTable(id);
+  };
+
+  const handleDragOver = (e: React.MouseEvent) => {
+    if (!draggingTable || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    // Clamp values
+    const clampedX = Math.max(0, Math.min(100, x));
+    const clampedY = Math.max(0, Math.min(100, y));
+    
+    updateTable(draggingTable, { x: clampedX, y: clampedY });
+  };
+
+  const handleDragEnd = () => {
+    setDraggingTable(null);
+  };
+
+  if (loading) return <div>Loading tables...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-neutral-900">Table Layout</h2>
+          <p className="text-neutral-500">Drag tables to position them according to your restaurant layout.</p>
+        </div>
+        <button
+          onClick={() => setIsAdding(true)}
+          className="bg-neutral-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-neutral-800 transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Add Table
+        </button>
+      </div>
+
+      {isAdding && (
+        <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm animate-in fade-in slide-in-from-top-4">
+          <form onSubmit={handleAddTable} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Table Number</label>
+              <input
+                type="text"
+                required
+                value={newTable.number}
+                onChange={(e) => setNewTable({ ...newTable, number: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                placeholder="e.g. 1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Seats</label>
+              <input
+                type="number"
+                required
+                min="1"
+                value={newTable.seats}
+                onChange={(e) => setNewTable({ ...newTable, seats: parseInt(e.target.value) })}
+                className="w-full px-4 py-2 rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <button
+                type="submit"
+                className="flex-1 bg-neutral-900 text-white py-2 rounded-xl font-medium hover:bg-neutral-800 transition-colors"
+              >
+                Save Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAdding(false)}
+                className="px-4 py-2 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div 
+        ref={containerRef}
+        className="relative w-full aspect-[16/9] bg-neutral-100 rounded-3xl border-2 border-dashed border-neutral-300 overflow-hidden"
+        onMouseMove={handleDragOver}
+        onMouseUp={handleDragEnd}
+        onMouseLeave={handleDragEnd}
+      >
+        {/* Grid lines */}
+        <div className="absolute inset-0 grid grid-cols-10 grid-rows-10 pointer-events-none opacity-5">
+          {Array.from({ length: 100 }).map((_, i) => (
+            <div key={i} className="border border-neutral-900" />
+          ))}
+        </div>
+
+        {tables.map((table) => (
+          <div
+            key={table.id}
+            style={{
+              left: `${table.x}%`,
+              top: `${table.y}%`,
+              transform: 'translate(-50%, -50%)'
+            }}
+            className={`absolute w-20 h-20 rounded-2xl flex flex-col items-center justify-center cursor-move transition-shadow ${
+              draggingTable === table.id ? 'z-50 shadow-2xl scale-110' : 'shadow-md'
+            } ${
+              table.status === 'occupied' ? 'bg-red-100 border-2 border-red-500 text-red-700' :
+              table.status === 'reserved' ? 'bg-amber-100 border-2 border-amber-500 text-amber-700' :
+              'bg-white border-2 border-neutral-200 text-neutral-900'
+            }`}
+            onMouseDown={() => handleDragStart(table.id)}
+          >
+            <span className="text-xs font-bold uppercase opacity-50">Table</span>
+            <span className="text-xl font-black">{table.number}</span>
+            <span className="text-[10px] font-medium">{table.seats} seats</span>
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm('Delete this table?')) deleteTable(table.id);
+              }}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+
+        {tables.length === 0 && !isAdding && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-400">
+            <Move className="w-12 h-12 mb-2 opacity-20" />
+            <p>No tables added yet. Click "Add Table" to start.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-neutral-900 text-white p-6 rounded-3xl flex items-center justify-between">
+        <div className="flex gap-8">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-white border border-neutral-400" />
+            <span className="text-sm font-medium">Available</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500" />
+            <span className="text-sm font-medium">Occupied</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-amber-500" />
+            <span className="text-sm font-medium">Reserved</span>
+          </div>
+        </div>
+        <p className="text-xs text-neutral-400 italic">Layout is automatically saved when dragging.</p>
+      </div>
+    </div>
+  );
+}

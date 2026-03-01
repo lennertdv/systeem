@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
-import { LogOut, LayoutDashboard, UtensilsCrossed, History, Store } from 'lucide-react';
+import { LogOut, LayoutDashboard, UtensilsCrossed, History, Store, Map as MapIcon } from 'lucide-react';
 import AnalyticsTab from './Tabs/AnalyticsTab';
 import MenuTab from './Tabs/MenuTab';
 import OrdersTab from './Tabs/OrdersTab';
+import TableLayout from './TableLayout';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'menu' | 'orders'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'menu' | 'orders' | 'tables'>('analytics');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { settings, updateSettings } = useStoreSettings();
@@ -75,6 +76,15 @@ export default function AdminDashboard() {
             <History className="w-5 h-5" />
             Order History
           </button>
+          <button
+            onClick={() => setActiveTab('tables')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors whitespace-nowrap ${
+              activeTab === 'tables' ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+            }`}
+          >
+            <MapIcon className="w-5 h-5" />
+            Table Layout
+          </button>
           
           <div className="h-px bg-neutral-100 my-2 hidden md:block"></div>
           
@@ -127,6 +137,7 @@ export default function AdminDashboard() {
         {activeTab === 'analytics' && <AnalyticsTab />}
         {activeTab === 'menu' && <MenuTab />}
         {activeTab === 'orders' && <OrdersTab />}
+        {activeTab === 'tables' && <TableLayout />}
       </main>
     </div>
   );

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useMenu } from '../../hooks/useMenu';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
 import { MenuItem, OrderItem } from '../../types';
-import { ShoppingBag, Plus, Minus, ChefHat, Store } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, ChefHat, Store, LayoutDashboard, UtensilsCrossed } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import CheckoutForm from './CheckoutForm';
@@ -18,11 +19,91 @@ export default function CustomerView() {
   const { menuItems, categories, loading: menuLoading } = useMenu();
   const { settings, loading: settingsLoading } = useStoreSettings();
   
-  const [cart, setCart] = useState<OrderItem[]>([]);
+  const [cart, setCart] = useState<OrderItem[]>(() => {
+    const saved = localStorage.getItem('bistro_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [tableNumber, setTableNumber] = useState('');
+  const [tableNumber, setTableNumber] = useState(() => {
+    return localStorage.getItem('bistro_table') || '';
+  });
   const [orderSuccess, setOrderSuccess] = useState(false);
-  
+  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
+
+  // Persist cart and table number
+  useEffect(() => {
+    localStorage.setItem('bistro_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    localStorage.setItem('bistro_table', tableNumber);
+  }, [tableNumber]);
+
+  // Handle Stripe redirect return
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const paymentIntent = query.get('payment_intent');
+    const status = query.get('redirect_status');
+
+    if (paymentIntent && status === 'succeeded' && cart.length > 0) {
+      handleFinalizeOrder(paymentIntent);
+    }
+  }, []);
+
+  const handleFinalizeOrder = async (paymentIntentId: string) => {
+    if (isProcessingReturn) return;
+    setIsProcessingReturn(true);
+    
+    try {
+      const { collection, addDoc } = await import('firebase/firestore');
+      const { db } = await import('../../lib/firebase');
+      
+      if (!db) throw new Error('Database not initialized');
+
+      const { getDocs, query: firestoreQuery, where } = await import('firebase/firestore');
+      const existingOrders = await getDocs(
+        firestoreQuery(collection(db, 'orders'), where('paymentIntentId', '==', paymentIntentId))
+      );
+
+      if (!existingOrders.empty) {
+        console.log('Order already exists for this payment intent');
+        setCart([]);
+        setTableNumber('');
+        localStorage.removeItem('bistro_cart');
+        localStorage.removeItem('bistro_table');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+
+      await addDoc(collection(db, 'orders'), {
+        tableNumber,
+        items: cart,
+        status: 'pending',
+        totalPrice: total,
+        timestamp: Date.now(),
+        paymentIntentId,
+      });
+
+      // Clear everything
+      setCart([]);
+      setTableNumber('');
+      localStorage.removeItem('bistro_cart');
+      localStorage.removeItem('bistro_table');
+      setOrderSuccess(true);
+      setIsCartOpen(false);
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      setTimeout(() => setOrderSuccess(false), 5000);
+    } catch (err) {
+      console.error('Error finalizing order:', err);
+      alert('Payment succeeded but failed to save order. Please show your confirmation to staff.');
+    } finally {
+      setIsProcessingReturn(false);
+    }
+  };
+
   // Stripe state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isInitializingPayment, setIsInitializingPayment] = useState(false);
@@ -135,7 +216,16 @@ export default function CustomerView() {
             <ChefHat className="w-6 h-6" />
             <h1 className="font-bold text-xl tracking-tight">Bistro Live</h1>
           </div>
-          {!settings.isOpen ? (
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 mr-4 border-r border-neutral-200 pr-4">
+              <Link to="/kitchen" className="text-neutral-500 hover:text-neutral-900 flex items-center gap-1 text-sm font-medium">
+                <UtensilsCrossed className="w-4 h-4" /> Kitchen
+              </Link>
+              <Link to="/admin" className="text-neutral-500 hover:text-neutral-900 flex items-center gap-1 text-sm font-medium">
+                <LayoutDashboard className="w-4 h-4" /> Admin
+              </Link>
+            </div>
+            {!settings.isOpen ? (
             <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
               <Store className="w-4 h-4" /> Closed
             </span>
@@ -152,6 +242,7 @@ export default function CustomerView() {
               )}
             </button>
           )}
+          </div>
         </div>
       </header>
 
