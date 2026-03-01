@@ -8,7 +8,10 @@ export default function TableLayout() {
   const [isAdding, setIsAdding] = useState(false);
   const [newTable, setNewTable] = useState({ number: '', seats: 2 });
   const [draggingTable, setDraggingTable] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedTable = tables.find(t => t.id === selectedTableId);
 
   const handleAddTable = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +45,17 @@ export default function TableLayout() {
 
   const handleDragEnd = () => {
     setDraggingTable(null);
+  };
+
+  const handleTableClick = (id: string) => {
+    if (draggingTable) return;
+    setSelectedTableId(id);
+  };
+
+  const handleUpdateStatus = async (status: Table['status'], reservationTime?: string) => {
+    if (!selectedTableId) return;
+    await updateTable(selectedTableId, { status, reservationTime: reservationTime || '' });
+    setSelectedTableId(null);
   };
 
   if (loading) return <div>Loading tables...</div>;
@@ -135,10 +149,14 @@ export default function TableLayout() {
               'bg-white border-2 border-neutral-200 text-neutral-900'
             }`}
             onMouseDown={() => handleDragStart(table.id)}
+            onClick={() => handleTableClick(table.id)}
           >
             <span className="text-xs font-bold uppercase opacity-50">Table</span>
             <span className="text-xl font-black">{table.number}</span>
             <span className="text-[10px] font-medium">{table.seats} seats</span>
+            {table.status === 'reserved' && table.reservationTime && (
+              <span className="text-[10px] font-bold mt-1 bg-amber-200 px-1 rounded">{table.reservationTime}</span>
+            )}
             
             <button
               onClick={(e) => {
@@ -175,8 +193,65 @@ export default function TableLayout() {
             <span className="text-sm font-medium">Reserved</span>
           </div>
         </div>
-        <p className="text-xs text-neutral-400 italic">Layout is automatically saved when dragging.</p>
+        <p className="text-xs text-neutral-400 italic">Click a table to change status. Drag to move.</p>
       </div>
+
+      {/* Status Update Modal */}
+      {selectedTable && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-neutral-900">Table {selectedTable.number}</h3>
+              <button onClick={() => setSelectedTableId(null)} className="text-neutral-400 hover:text-neutral-900">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                onClick={() => handleUpdateStatus('available')}
+                className={`w-full py-4 rounded-2xl font-bold border-2 transition-all ${
+                  selectedTable.status === 'available' 
+                    ? 'border-neutral-900 bg-neutral-900 text-white' 
+                    : 'border-neutral-100 hover:border-neutral-200 text-neutral-600'
+                }`}
+              >
+                Available
+              </button>
+              <button
+                onClick={() => handleUpdateStatus('occupied')}
+                className={`w-full py-4 rounded-2xl font-bold border-2 transition-all ${
+                  selectedTable.status === 'occupied' 
+                    ? 'border-red-500 bg-red-500 text-white' 
+                    : 'border-neutral-100 hover:border-red-100 text-red-600'
+                }`}
+              >
+                Occupied
+              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    const time = prompt('Reservation time (e.g. 19:00)?', selectedTable.reservationTime || '');
+                    if (time !== null) handleUpdateStatus('reserved', time);
+                  }}
+                  className={`w-full py-4 rounded-2xl font-bold border-2 transition-all ${
+                    selectedTable.status === 'reserved' 
+                      ? 'border-amber-500 bg-amber-500 text-white' 
+                      : 'border-neutral-100 hover:border-amber-100 text-amber-600'
+                  }`}
+                >
+                  Reserved
+                </button>
+                {selectedTable.status === 'reserved' && (
+                  <p className="text-center text-xs font-medium text-amber-600">
+                    Reserved for: {selectedTable.reservationTime || 'Not set'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

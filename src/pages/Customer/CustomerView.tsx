@@ -217,14 +217,6 @@ export default function CustomerView() {
             <h1 className="font-bold text-xl tracking-tight">Bistro Live</h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 mr-4 border-r border-neutral-200 pr-4">
-              <Link to="/kitchen" className="text-neutral-500 hover:text-neutral-900 flex items-center gap-1 text-sm font-medium">
-                <UtensilsCrossed className="w-4 h-4" /> Kitchen
-              </Link>
-              <Link to="/admin" className="text-neutral-500 hover:text-neutral-900 flex items-center gap-1 text-sm font-medium">
-                <LayoutDashboard className="w-4 h-4" /> Admin
-              </Link>
-            </div>
             {!settings.isOpen ? (
             <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
               <Store className="w-4 h-4" /> Closed

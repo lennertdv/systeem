@@ -11,7 +11,7 @@ export default function KitchenView() {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 60000); // Update every minute
+    const interval = setInterval(() => setNow(Date.now()), 10000); // Update every 10 seconds for smoother timer
     return () => clearInterval(interval);
   }, []);
 
@@ -30,8 +30,8 @@ export default function KitchenView() {
 
   const getWaitTimeColor = (timestamp: number) => {
     const diffMinutes = (now - timestamp) / 1000 / 60;
-    if (diffMinutes < 10) return 'bg-emerald-50 border-emerald-200 text-emerald-900';
-    if (diffMinutes < 20) return 'bg-amber-50 border-amber-200 text-amber-900';
+    if (diffMinutes < 5) return 'bg-emerald-50 border-emerald-200 text-emerald-900';
+    if (diffMinutes < 10) return 'bg-amber-50 border-amber-200 text-amber-900';
     return 'bg-red-50 border-red-200 text-red-900';
   };
 
@@ -48,9 +48,9 @@ export default function KitchenView() {
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4 text-sm font-medium text-neutral-400 bg-neutral-800 px-4 py-2 rounded-xl hidden md:flex">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> &lt; 10m</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> 10-20m</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div> &gt; 20m</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div> &lt; 5m</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> 5-10m</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div> &gt; 10m</div>
           </div>
           <div className="flex items-center gap-2">
             <a href="/" className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition-colors">
@@ -71,6 +71,9 @@ export default function KitchenView() {
         ) : (
           orders.map((order) => {
             const colorClass = getWaitTimeColor(order.timestamp);
+            const waitTimeMinutes = Math.floor((now - order.timestamp) / 1000 / 60);
+            const waitTimeSeconds = Math.floor(((now - order.timestamp) / 1000) % 60);
+            
             return (
               <div 
                 key={order.id} 
@@ -86,9 +89,8 @@ export default function KitchenView() {
                       <Clock className="w-4 h-4" />
                       {format(new Date(order.timestamp), 'HH:mm')}
                     </div>
-                    <div className="flex items-center gap-1 text-xs font-bold opacity-50 justify-end mb-2">
-                      <Hash className="w-3 h-3" />
-                      {order.id.slice(0, 6)}
+                    <div className="text-xl font-black flex items-center gap-1 justify-end">
+                      {waitTimeMinutes}:{waitTimeSeconds.toString().padStart(2, '0')}
                     </div>
                   </div>
                 </div>

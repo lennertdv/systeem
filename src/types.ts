@@ -41,4 +41,5 @@ export interface Table {
   x: number; // Percentage from left (0-100)
   y: number; // Percentage from top (0-100)
   status: 'available' | 'occupied' | 'reserved';
+  reservationTime?: string;
 }
