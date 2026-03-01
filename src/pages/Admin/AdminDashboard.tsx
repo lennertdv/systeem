@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
-import { LogOut, LayoutDashboard, UtensilsCrossed, History } from 'lucide-react';
+import { LogOut, LayoutDashboard, UtensilsCrossed, History, Store } from 'lucide-react';
 import AnalyticsTab from './Tabs/AnalyticsTab';
 import MenuTab from './Tabs/MenuTab';
 import OrdersTab from './Tabs/OrdersTab';
+import { useStoreSettings } from '../../hooks/useStoreSettings';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'analytics' | 'menu' | 'orders'>('analytics');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { settings, updateSettings } = useStoreSettings();
 
   useEffect(() => {
     if (!auth) return;
@@ -74,6 +76,25 @@ export default function AdminDashboard() {
             Order History
           </button>
           
+          <div className="h-px bg-neutral-100 my-2 hidden md:block"></div>
+          
+          <div className="px-4 py-3 hidden md:block">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Restaurant Status</span>
+            </div>
+            <button
+              onClick={() => updateSettings({ isOpen: !settings.isOpen })}
+              className={`w-full flex items-center justify-center gap-2 py-2 rounded-lg font-bold transition-colors ${
+                settings.isOpen 
+                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+              }`}
+            >
+              <Store className="w-4 h-4" />
+              {settings.isOpen ? 'Open' : 'Closed'}
+            </button>
+          </div>
+
           <div className="h-px bg-neutral-100 my-2 hidden md:block"></div>
           
           <a
