@@ -8,7 +8,10 @@ import {
   ShoppingCart,
   ArrowUpRight,
   ArrowDownRight,
-  Activity
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Loader2
 } from 'lucide-react';
 
 interface Stats {
@@ -24,8 +27,22 @@ export default function SuperAdminDashboard() {
     totalRevenueToday: 0
   });
   const [loading, setLoading] = useState(true);
+  const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
 
   useEffect(() => {
+    const checkApi = async () => {
+      try {
+        const response = await fetch('/api/super-admin/health');
+        if (response.ok) {
+          setApiStatus('online');
+        } else {
+          setApiStatus('offline');
+        }
+      } catch (error) {
+        setApiStatus('offline');
+      }
+    };
+
     const fetchStats = async () => {
       try {
         // 1. Fetch Restaurants
@@ -77,6 +94,7 @@ export default function SuperAdminDashboard() {
     };
 
     fetchStats();
+    checkApi();
   }, []);
 
   const statCards = [
@@ -151,14 +169,25 @@ export default function SuperAdminDashboard() {
               <h2 className="text-lg font-bold">System Health</h2>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-xs font-medium text-emerald-500 uppercase tracking-widest">Operational</span>
+              {apiStatus === 'checking' ? (
+                <Loader2 className="w-4 h-4 text-neutral-400 animate-spin" />
+              ) : apiStatus === 'online' ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span className="text-xs font-medium text-emerald-500 uppercase tracking-widest">Backend Online</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-500 uppercase tracking-widest">Backend Offline</span>
+                </>
+              )}
             </div>
           </div>
           
           <div className="space-y-6">
             {[
-              { label: 'API Latency', value: '42ms', status: 'optimal' },
+              { label: 'API Latency', value: apiStatus === 'online' ? '42ms' : 'N/A', status: apiStatus === 'online' ? 'optimal' : 'error' },
               { label: 'Database Load', value: '12%', status: 'optimal' },
               { label: 'Auth Service', value: '100%', status: 'optimal' },
               { label: 'Payment Gateway', value: '100%', status: 'optimal' },
@@ -168,7 +197,7 @@ export default function SuperAdminDashboard() {
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-mono font-bold">{item.value}</span>
                   <div className="w-12 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 w-full" />
+                    <div className={`h-full ${item.status === 'optimal' ? 'bg-emerald-500' : 'bg-red-500'} w-full`} />
                   </div>
                 </div>
               </div>

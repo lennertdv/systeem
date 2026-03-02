@@ -20,6 +20,10 @@ function getAdmin(): admin.app.App {
     }
 
     try {
+      if (serviceAccount.startsWith('AIza')) {
+        throw new Error('It looks like you provided a Firebase API Key (starting with AIza) instead of a Service Account JSON. Please provide the full JSON from Firebase Console -> Project Settings -> Service Accounts.');
+      }
+
       console.log(`[SUPER_ADMIN_DEBUG] Service account string length: ${serviceAccount.length}`);
       console.log(`[SUPER_ADMIN_DEBUG] Starts with: ${serviceAccount.substring(0, 20)}...`);
 
