@@ -3,11 +3,13 @@ import { useMemo } from 'react';
 import { format, startOfDay, isSameDay, subDays, eachDayOfInterval } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Package, Clock, DollarSign, Users, Calendar } from 'lucide-react';
+import { useRestaurant } from '../../../context/RestaurantContext';
 
 const COLORS = ['#171717', '#404040', '#737373', '#a3a3a3', '#d4d4d4'];
 
 export default function AnalyticsTab() {
-  const { orders, loading } = useOrders();
+  const { restaurantPath } = useRestaurant();
+  const { orders, loading } = useOrders(restaurantPath);
 
   const analytics = useMemo(() => {
     if (!orders.length) return { 

@@ -2,13 +2,17 @@ import React, { useState, useRef } from 'react';
 import { useTables } from '../../hooks/useTables';
 import { useOrders } from '../../hooks/useOrders';
 import { Table } from '../../types';
-import { Plus, Trash2, Move, Save, X, Clock, Utensils, History as HistoryIcon } from 'lucide-react';
+import { Plus, Trash2, Move, Save, X, Clock, Utensils, History as HistoryIcon, QrCode, Download, Printer } from 'lucide-react';
 import { format } from 'date-fns';
+import { useRestaurant } from '../../context/RestaurantContext';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function TableLayout() {
-  const { tables, addTable, updateTable, deleteTable, loading } = useTables();
-  const { orders: allOrders } = useOrders();
+  const { restaurantPath, restaurantSlug } = useRestaurant();
+  const { tables, addTable, updateTable, deleteTable, loading } = useTables(restaurantPath);
+  const { orders: allOrders } = useOrders(restaurantPath);
   const [isAdding, setIsAdding] = useState(false);
+  const [showQRCodes, setShowQRCodes] = useState(false);
   const [newTable, setNewTable] = useState({ number: '', seats: 2 });
   const [draggingTable, setDraggingTable] = useState<string | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -61,7 +65,89 @@ export default function TableLayout() {
     setSelectedTableId(null);
   };
 
+  const downloadQRCode = (tableNumber: string) => {
+    const svg = document.getElementById(`qr-table-${tableNumber}`);
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    img.onload = () => {
+      canvas.width = img.width + 40;
+      canvas.height = img.height + 100;
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 20, 20);
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 24px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Tafel ${tableNumber}`, canvas.width / 2, img.height + 60);
+      }
+      const pngFile = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `tafel-${tableNumber}-qr.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+  };
+
+  const printAllQRCodes = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const qrCodesHtml = tables.map(table => {
+      const svg = document.getElementById(`qr-table-${table.number}`);
+      const svgHtml = svg ? new XMLSerializer().serializeToString(svg) : '';
+      return `
+        <div style="text-align: center; padding: 20px; border: 1px solid #eee; break-inside: avoid;">
+          <div style="margin-bottom: 10px;">${svgHtml}</div>
+          <div style="font-family: sans-serif; font-weight: bold; font-size: 18px;">Tafel ${table.number}</div>
+          <div style="font-family: sans-serif; font-size: 12px; color: #666;">${table.seats} personen</div>
+        </div>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print QR Codes - OrderFlow</title>
+          <style>
+            body { margin: 0; padding: 20px; }
+            .grid { 
+              display: grid; 
+              grid-template-columns: repeat(3, 1fr); 
+              gap: 20px; 
+            }
+            @media print {
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="grid">${qrCodesHtml}</div>
+          <script>
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   if (loading) return <div>Loading tables...</div>;
+
+  const slug = restaurantSlug || window.location.hostname.split('.')[0];
+  const baseUrl = window.location.origin.includes('localhost') || window.location.origin.includes('.run.app')
+    ? window.location.origin 
+    : `https://${slug}.orderflow.be`;
 
   return (
     <div className="space-y-6">
@@ -70,12 +156,22 @@ export default function TableLayout() {
           <h2 className="text-2xl font-bold text-neutral-900">Table Layout</h2>
           <p className="text-neutral-500">Drag tables to position them according to your restaurant layout.</p>
         </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="bg-neutral-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-neutral-800 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Table
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowQRCodes(!showQRCodes)}
+            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-colors font-medium text-sm ${
+              showQRCodes ? 'bg-neutral-200 text-neutral-900' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+          >
+            <QrCode className="w-4 h-4" /> QR Codes
+          </button>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="bg-neutral-900 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-neutral-800 transition-colors font-medium text-sm"
+          >
+            <Plus className="w-4 h-4" /> Add Table
+          </button>
+        </div>
       </div>
 
       {isAdding && (
@@ -198,6 +294,50 @@ export default function TableLayout() {
         </div>
         <p className="text-xs text-neutral-400 italic">Click a table to change status. Drag to move.</p>
       </div>
+
+      {/* QR Codes Section */}
+      {showQRCodes && (
+        <div className="space-y-6 pt-6 border-t border-neutral-200 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-bold text-neutral-900">Table QR Codes</h3>
+              <p className="text-sm text-neutral-500">Each table has a unique QR code that links directly to the menu with the table pre-selected.</p>
+            </div>
+            <button
+              onClick={printAllQRCodes}
+              className="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-neutral-200 transition-all"
+            >
+              <Printer className="w-4 h-4" /> Print All
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tables.map((table) => (
+              <div key={table.id} className="bg-white border border-neutral-200 rounded-2xl p-6 flex flex-col items-center shadow-sm hover:shadow-md transition-shadow">
+                <div className="bg-neutral-50 p-4 rounded-xl mb-4">
+                  <QRCodeSVG
+                    id={`qr-table-${table.number}`}
+                    value={`${baseUrl}/?table=${table.number}`}
+                    size={160}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+                <div className="text-center mb-6">
+                  <h4 className="text-lg font-black text-neutral-900">Tafel {table.number}</h4>
+                  <p className="text-xs text-neutral-500 font-medium uppercase tracking-widest">{table.seats} personen</p>
+                </div>
+                <button
+                  onClick={() => downloadQRCode(table.number)}
+                  className="w-full bg-neutral-900 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 transition-all active:scale-95"
+                >
+                  <Download className="w-4 h-4" /> Download
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Status Update Modal */}
       {selectedTable && (

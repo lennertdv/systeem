@@ -4,9 +4,11 @@ import { MenuItem, Category } from '../../../types';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react';
+import { useRestaurant } from '../../../context/RestaurantContext';
 
 export default function MenuTab() {
-  const { menuItems, categories, loading } = useMenu();
+  const { restaurantPath } = useRestaurant();
+  const { menuItems, categories, loading } = useMenu(restaurantPath);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   
@@ -46,7 +48,7 @@ export default function MenuTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db) return;
+    if (!db || !restaurantPath) return;
 
     const data = {
       name: formData.name,
@@ -59,9 +61,9 @@ export default function MenuTab() {
 
     try {
       if (editingItem) {
-        await updateDoc(doc(db, 'menu_items', editingItem.id), data);
+        await updateDoc(doc(db, restaurantPath, 'menu_items', editingItem.id), data);
       } else {
-        await addDoc(collection(db, 'menu_items'), data);
+        await addDoc(collection(db, restaurantPath, 'menu_items'), data);
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -71,18 +73,18 @@ export default function MenuTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!db || !confirm('Are you sure you want to delete this item?')) return;
+    if (!db || !restaurantPath || !confirm('Are you sure you want to delete this item?')) return;
     try {
-      await deleteDoc(doc(db, 'menu_items', id));
+      await deleteDoc(doc(db, restaurantPath, 'menu_items', id));
     } catch (error) {
       console.error('Error deleting menu item:', error);
     }
   };
 
   const toggleSoldOut = async (item: MenuItem) => {
-    if (!db) return;
+    if (!db || !restaurantPath) return;
     try {
-      await updateDoc(doc(db, 'menu_items', item.id), { soldOut: !item.soldOut });
+      await updateDoc(doc(db, restaurantPath, 'menu_items', item.id), { soldOut: !item.soldOut });
     } catch (error) {
       console.error('Error toggling sold out status:', error);
     }
@@ -93,9 +95,9 @@ export default function MenuTab() {
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || !categoryName.trim()) return;
+    if (!db || !restaurantPath || !categoryName.trim()) return;
     try {
-      await addDoc(collection(db, 'categories'), {
+      await addDoc(collection(db, restaurantPath, 'categories'), {
         name: categoryName.trim(),
         order: categories.length
       });

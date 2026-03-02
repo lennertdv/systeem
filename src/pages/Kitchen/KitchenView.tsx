@@ -5,13 +5,15 @@ import { db } from '../../lib/firebase';
 import { Order } from '../../types';
 import { format } from 'date-fns';
 import { ChefHat, CheckCircle2, Clock, History, LayoutGrid, Utensils, Beer, Bell, BellOff } from 'lucide-react';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 export default function KitchenView() {
+  const { restaurantPath } = useRestaurant();
   const [view, setView] = useState<'active' | 'completed'>('active');
   const [filter, setFilter] = useState<'all' | 'food' | 'drinks'>('all');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
-  const { orders: allOrders, loading } = useOrders(view === 'active' ? ['pending', 'in-progress'] : ['completed']);
+  const { orders: allOrders, loading } = useOrders(restaurantPath, view === 'active' ? ['pending', 'in-progress'] : ['completed']);
   const [now, setNow] = useState(Date.now());
   const prevOrdersCount = useRef<number | null>(null);
 
@@ -39,13 +41,13 @@ export default function KitchenView() {
   };
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
-    if (!db) return;
+    if (!db || !restaurantPath) return;
     try {
       const updateData: any = { status };
       if (status === 'completed') {
         updateData.completedAt = Date.now();
       }
-      await updateDoc(doc(db, 'orders', orderId), updateData);
+      await updateDoc(doc(db, restaurantPath, 'orders', orderId), updateData);
     } catch (error) {
       console.error('Error updating order:', error);
     }
@@ -63,8 +65,8 @@ export default function KitchenView() {
   };
 
   const togglePriority = async (orderId: string, currentPriority: boolean) => {
-    if (!db) return;
-    await updateDoc(doc(db, 'orders', orderId), { priority: !currentPriority });
+    if (!db || !restaurantPath) return;
+    await updateDoc(doc(db, restaurantPath, 'orders', orderId), { priority: !currentPriority });
   };
 
   const filteredOrders = allOrders.filter(order => {

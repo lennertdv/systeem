@@ -18,10 +18,10 @@ import { Link } from 'react-router-dom';
 
 interface Restaurant {
   id: string;
-  name: string;
+  restaurantName: string;
   slug: string;
   ownerEmail: string;
-  active: boolean;
+  isOpen: boolean;
   createdAt: number;
   plan: string;
 }
@@ -48,12 +48,13 @@ export default function RestaurantManagement() {
 
   const fetchRestaurants = async () => {
     try {
+      const { getDoc } = await import('firebase/firestore');
       const snapshot = await getDocs(collection(db, 'restaurants'));
       const list: Restaurant[] = [];
       
       for (const restaurantDoc of snapshot.docs) {
-        const infoSnapshot = await getDocs(collection(db, 'restaurants', restaurantDoc.id, 'info'));
-        const info = infoSnapshot.docs[0]?.data();
+        const settingsDoc = await getDoc(doc(db, 'restaurants', restaurantDoc.id, 'settings', 'general'));
+        const info = settingsDoc.data();
         if (info) {
           list.push({ id: restaurantDoc.id, ...info } as Restaurant);
         }
@@ -108,13 +109,8 @@ export default function RestaurantManagement() {
 
   const toggleStatus = async (restaurant: Restaurant) => {
     try {
-      // Need to find the specific doc in the info subcollection
-      const infoSnapshot = await getDocs(collection(db, 'restaurants', restaurant.slug, 'info'));
-      const infoDocId = infoSnapshot.docs[0]?.id;
-      if (!infoDocId) return;
-
-      await updateDoc(doc(db, 'restaurants', restaurant.slug, 'info', infoDocId), {
-        active: !restaurant.active
+      await updateDoc(doc(db, 'restaurants', restaurant.slug, 'settings', 'general'), {
+        isOpen: !restaurant.isOpen
       });
       
       await fetchRestaurants();
@@ -124,9 +120,9 @@ export default function RestaurantManagement() {
   };
 
   const filteredRestaurants = restaurants.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.ownerEmail.toLowerCase().includes(searchQuery.toLowerCase())
+    (r.restaurantName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.slug || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.ownerEmail || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -187,7 +183,7 @@ export default function RestaurantManagement() {
                   <tr key={restaurant.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="font-bold text-sm">{restaurant.name}</span>
+                        <span className="font-bold text-sm">{restaurant.restaurantName}</span>
                         <span className="text-xs text-neutral-500 font-mono">/{restaurant.slug}</span>
                       </div>
                     </td>
@@ -195,9 +191,9 @@ export default function RestaurantManagement() {
                       <span className="text-sm text-neutral-400">{restaurant.ownerEmail}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${restaurant.active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${restaurant.active ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                        {restaurant.active ? 'Active' : 'Inactive'}
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${restaurant.isOpen ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${restaurant.isOpen ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                        {restaurant.isOpen ? 'Active' : 'Inactive'}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -211,8 +207,8 @@ export default function RestaurantManagement() {
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => toggleStatus(restaurant)}
-                          className={`p-2 rounded-lg transition-colors ${restaurant.active ? 'text-red-400 hover:bg-red-400/10' : 'text-emerald-400 hover:bg-emerald-400/10'}`}
-                          title={restaurant.active ? 'Deactivate' : 'Activate'}
+                          className={`p-2 rounded-lg transition-colors ${restaurant.isOpen ? 'text-red-400 hover:bg-red-400/10' : 'text-emerald-400 hover:bg-emerald-400/10'}`}
+                          title={restaurant.isOpen ? 'Deactivate' : 'Activate'}
                         >
                           <Power className="w-4 h-4" />
                         </button>

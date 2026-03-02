@@ -162,15 +162,16 @@ async function startServer() {
         displayName: name,
       });
 
-      // 2. Create Restaurant Info
-      await db.collection('restaurants').doc(slug).collection('info').doc('general').set({
-        name,
+      // 2. Create Restaurant Settings
+      await db.collection('restaurants').doc(slug).collection('settings').doc('general').set({
+        restaurantName: name,
         slug,
         ownerEmail: email,
         ownerUid: userRecord.uid,
-        active: true,
+        isOpen: true,
         createdAt: Date.now(),
-        plan: 'starter'
+        plan: 'starter',
+        currency: '€'
       });
 
       // 3. Create User Record

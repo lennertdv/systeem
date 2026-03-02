@@ -11,7 +11,7 @@ export interface StoreSettings {
   address?: string;
 }
 
-export function useStoreSettings() {
+export function useStoreSettings(restaurantPath: string | null) {
   const [settings, setSettings] = useState<StoreSettings>({ 
     isOpen: true,
     restaurantName: 'Bistro Live',
@@ -20,12 +20,12 @@ export function useStoreSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) {
+    if (!db || !restaurantPath) {
       setLoading(false);
       return;
     }
 
-    const docRef = doc(db, 'settings', 'general');
+    const docRef = doc(db, restaurantPath, 'settings', 'general');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         setSettings(docSnap.data() as StoreSettings);
@@ -40,12 +40,12 @@ export function useStoreSettings() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [restaurantPath]);
 
   const updateSettings = async (newSettings: Partial<StoreSettings>) => {
-    if (!db) return;
+    if (!db || !restaurantPath) return;
     try {
-      await setDoc(doc(db, 'settings', 'general'), newSettings, { merge: true });
+      await setDoc(doc(db, restaurantPath, 'settings', 'general'), newSettings, { merge: true });
     } catch (error) {
       console.error("Error updating settings:", error);
     }

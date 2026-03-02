@@ -10,12 +10,14 @@ import SettingsTab from './Tabs/SettingsTab';
 import StaffTab from './Tabs/StaffTab';
 import TableLayout from './TableLayout';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 export default function AdminDashboard() {
+  const { restaurantPath } = useRestaurant();
   const [activeTab, setActiveTab] = useState<'analytics' | 'menu' | 'orders' | 'tables' | 'settings' | 'staff'>('analytics');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { settings, updateSettings } = useStoreSettings();
+  const { settings, updateSettings } = useStoreSettings(restaurantPath);
 
   useEffect(() => {
     if (!auth) return;

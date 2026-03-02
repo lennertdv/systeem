@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import CheckoutForm from './CheckoutForm';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 // Initialize Stripe outside of component to avoid recreating it
 const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
@@ -17,8 +18,9 @@ if (!stripePublicKey) {
 const stripePromise = loadStripe(stripePublicKey || 'pk_test_dummy');
 
 export default function CustomerView() {
-  const { menuItems, categories, loading: menuLoading } = useMenu();
-  const { settings, loading: settingsLoading } = useStoreSettings();
+  const { restaurantPath } = useRestaurant();
+  const { menuItems, categories, loading: menuLoading } = useMenu(restaurantPath);
+  const { settings, loading: settingsLoading } = useStoreSettings(restaurantPath);
   
   const [cart, setCart] = useState<OrderItem[]>(() => {
     const saved = localStorage.getItem('bistro_cart');
@@ -49,13 +51,13 @@ export default function CustomerView() {
     const paymentIntent = query.get('payment_intent');
     const status = query.get('redirect_status');
 
-    if (paymentIntent && status === 'succeeded' && cart.length > 0) {
+    if (paymentIntent && status === 'succeeded' && cart.length > 0 && restaurantPath) {
       handleFinalizeOrder(paymentIntent);
     }
-  }, []);
+  }, [restaurantPath]);
 
   const handleFinalizeOrder = async (paymentIntentId: string) => {
-    if (isProcessingReturn) return;
+    if (isProcessingReturn || !restaurantPath) return;
     setIsProcessingReturn(true);
     
     try {
@@ -66,7 +68,7 @@ export default function CustomerView() {
 
       const { getDocs, query: firestoreQuery, where } = await import('firebase/firestore');
       const existingOrders = await getDocs(
-        firestoreQuery(collection(db, 'orders'), where('paymentIntentId', '==', paymentIntentId))
+        firestoreQuery(collection(db, restaurantPath, 'orders'), where('paymentIntentId', '==', paymentIntentId))
       );
 
       if (!existingOrders.empty) {
@@ -79,7 +81,7 @@ export default function CustomerView() {
         return;
       }
 
-      await addDoc(collection(db, 'orders'), {
+      await addDoc(collection(db, restaurantPath, 'orders'), {
         tableNumber,
         items: cart,
         status: 'pending',

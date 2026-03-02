@@ -3,18 +3,18 @@ import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { MenuItem, Category } from '../types';
 
-export function useMenu() {
+export function useMenu(restaurantPath: string | null) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) {
+    if (!db || !restaurantPath) {
       setLoading(false);
       return;
     }
 
-    const itemsQuery = query(collection(db, 'menu_items'));
+    const itemsQuery = query(collection(db, restaurantPath, 'menu_items'));
     const unsubscribeItems = onSnapshot(itemsQuery, (snapshot) => {
       const items: MenuItem[] = [];
       snapshot.forEach((doc) => {
@@ -26,7 +26,7 @@ export function useMenu() {
       setLoading(false);
     });
 
-    const categoriesQuery = query(collection(db, 'categories'), orderBy('order', 'asc'));
+    const categoriesQuery = query(collection(db, restaurantPath, 'categories'), orderBy('order', 'asc'));
     const unsubscribeCategories = onSnapshot(categoriesQuery, (snapshot) => {
       const cats: Category[] = [];
       snapshot.forEach((doc) => {
@@ -43,7 +43,7 @@ export function useMenu() {
       unsubscribeItems();
       unsubscribeCategories();
     };
-  }, []);
+  }, [restaurantPath]);
 
   return { menuItems, categories, loading };
 }

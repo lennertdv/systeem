@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStoreSettings } from '../../../hooks/useStoreSettings';
 import { Save, Store, Globe, Mail, MapPin, CreditCard } from 'lucide-react';
+import { useRestaurant } from '../../../context/RestaurantContext';
 
 export default function SettingsTab() {
-  const { settings, updateSettings } = useStoreSettings();
+  const { restaurantPath } = useRestaurant();
+  const { settings, updateSettings } = useStoreSettings(restaurantPath);
   const [formData, setFormData] = useState(settings);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFormData(settings);
+  }, [settings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

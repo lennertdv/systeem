@@ -3,6 +3,7 @@ import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js'
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { OrderItem } from '../../types';
+import { useRestaurant } from '../../context/RestaurantContext';
 
 interface CheckoutFormProps {
   cart: OrderItem[];
@@ -13,6 +14,7 @@ interface CheckoutFormProps {
 }
 
 export default function CheckoutForm({ cart, total, tableNumber, onSuccess, onCancel }: CheckoutFormProps) {
+  const { restaurantPath } = useRestaurant();
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,7 +23,7 @@ export default function CheckoutForm({ cart, total, tableNumber, onSuccess, onCa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements || !db) {
+    if (!stripe || !elements || !db || !restaurantPath) {
       return;
     }
 
@@ -42,7 +44,7 @@ export default function CheckoutForm({ cart, total, tableNumber, onSuccess, onCa
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
       // Payment succeeded, save order to Firestore
       try {
-        await addDoc(collection(db, 'orders'), {
+        await addDoc(collection(db, restaurantPath, 'orders'), {
           tableNumber,
           items: cart,
           status: 'pending',

@@ -3,20 +3,20 @@ import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestor
 import { db } from '../lib/firebase';
 import { Order } from '../types';
 
-export function useOrders(filterStatus?: string[]) {
+export function useOrders(restaurantPath: string | null, filterStatus?: string[]) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   const filterStatusStr = filterStatus?.join(',') || '';
 
   useEffect(() => {
-    if (!db) {
+    if (!db || !restaurantPath) {
       setLoading(false);
       return;
     }
 
     // Only order by timestamp to avoid Firestore composite index requirements
-    const ordersQuery = query(collection(db, 'orders'), orderBy('timestamp', 'desc'));
+    const ordersQuery = query(collection(db, restaurantPath, 'orders'), orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
       const newOrders: Order[] = [];
@@ -46,7 +46,7 @@ export function useOrders(filterStatus?: string[]) {
     });
 
     return () => unsubscribe();
-  }, [filterStatusStr]);
+  }, [restaurantPath, filterStatusStr]);
 
   return { orders, loading };
 }

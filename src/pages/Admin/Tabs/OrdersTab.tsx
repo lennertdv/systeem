@@ -2,9 +2,11 @@ import { useOrders } from '../../../hooks/useOrders';
 import { format } from 'date-fns';
 import { Search, Filter } from 'lucide-react';
 import { useState } from 'react';
+import { useRestaurant } from '../../../context/RestaurantContext';
 
 export default function OrdersTab() {
-  const { orders, loading } = useOrders();
+  const { restaurantPath } = useRestaurant();
+  const { orders, loading } = useOrders(restaurantPath);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 

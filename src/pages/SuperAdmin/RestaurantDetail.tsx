@@ -20,10 +20,10 @@ import {
 import { format } from 'date-fns';
 
 interface RestaurantInfo {
-  name: string;
+  restaurantName: string;
   slug: string;
   ownerEmail: string;
-  active: boolean;
+  isOpen: boolean;
   createdAt: number;
   plan: string;
 }
@@ -48,11 +48,11 @@ export default function RestaurantDetail() {
     if (!slug) return;
     try {
       // 1. Fetch Info
-      const infoSnapshot = await getDocs(collection(db, 'restaurants', slug, 'info'));
-      const infoData = infoSnapshot.docs[0]?.data() as RestaurantInfo;
-      if (infoData) {
+      const infoDoc = await getDoc(doc(db, 'restaurants', slug, 'settings', 'general'));
+      if (infoDoc.exists()) {
+        const infoData = infoDoc.data() as RestaurantInfo;
         setInfo(infoData);
-        setEditName(infoData.name);
+        setEditName(infoData.restaurantName);
       }
 
       // 2. Fetch Stats
@@ -76,15 +76,11 @@ export default function RestaurantDetail() {
     if (!slug || !info) return;
     setSaving(true);
     try {
-      const infoSnapshot = await getDocs(collection(db, 'restaurants', slug, 'info'));
-      const infoDocId = infoSnapshot.docs[0]?.id;
-      if (!infoDocId) return;
-
-      await updateDoc(doc(db, 'restaurants', slug, 'info', infoDocId), {
-        name: editName
+      await updateDoc(doc(db, 'restaurants', slug, 'settings', 'general'), {
+        restaurantName: editName
       });
       
-      setInfo({ ...info, name: editName });
+      setInfo({ ...info, restaurantName: editName });
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating name:", error);
@@ -96,15 +92,11 @@ export default function RestaurantDetail() {
   const toggleStatus = async () => {
     if (!slug || !info) return;
     try {
-      const infoSnapshot = await getDocs(collection(db, 'restaurants', slug, 'info'));
-      const infoDocId = infoSnapshot.docs[0]?.id;
-      if (!infoDocId) return;
-
-      await updateDoc(doc(db, 'restaurants', slug, 'info', infoDocId), {
-        active: !info.active
+      await updateDoc(doc(db, 'restaurants', slug, 'settings', 'general'), {
+        isOpen: !info.isOpen
       });
       
-      setInfo({ ...info, active: !info.active });
+      setInfo({ ...info, isOpen: !info.isOpen });
     } catch (error) {
       console.error("Error toggling status:", error);
     }
@@ -175,7 +167,7 @@ export default function RestaurantDetail() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-black tracking-tight">{info.name}</h1>
+                <h1 className="text-4xl font-black tracking-tight">{info.restaurantName}</h1>
                 <button 
                   onClick={() => setIsEditing(true)}
                   className="p-2 text-neutral-500 hover:text-white transition-colors"
@@ -186,8 +178,8 @@ export default function RestaurantDetail() {
             )}
             <div className="flex items-center gap-4 mt-2">
               <span className="text-sm font-mono text-neutral-500">/{info.slug}</span>
-              <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${info.active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                {info.active ? 'Active' : 'Inactive'}
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${info.isOpen ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                {info.isOpen ? 'Active' : 'Inactive'}
               </div>
             </div>
           </div>
@@ -195,10 +187,10 @@ export default function RestaurantDetail() {
 
         <button
           onClick={toggleStatus}
-          className={`px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 ${info.active ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'}`}
+          className={`px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 ${info.isOpen ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'}`}
         >
           <Power className="w-4 h-4" />
-          {info.active ? 'Deactivate' : 'Activate'}
+          {info.isOpen ? 'Deactivate' : 'Activate'}
         </button>
       </div>
 

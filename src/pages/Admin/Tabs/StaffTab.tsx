@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Users, UserPlus, Trash2, Shield, User, Phone, Star, Clock, Coffee, LogOut, CheckCircle } from 'lucide-react';
+import { useRestaurant } from '../../../context/RestaurantContext';
 
 interface StaffMember {
   id: string;
@@ -15,6 +16,7 @@ interface StaffMember {
 }
 
 export default function StaffTab() {
+  const { restaurantPath } = useRestaurant();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -25,8 +27,8 @@ export default function StaffTab() {
   });
 
   useEffect(() => {
-    if (!db) return;
-    const q = query(collection(db, 'staff'), orderBy('joinedAt', 'desc'));
+    if (!db || !restaurantPath) return;
+    const q = query(collection(db, restaurantPath, 'staff'), orderBy('joinedAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const members: StaffMember[] = [];
       snapshot.forEach((doc) => {
@@ -38,12 +40,12 @@ export default function StaffTab() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [restaurantPath]);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || !newMember.name) return;
-    await addDoc(collection(db, 'staff'), {
+    if (!db || !restaurantPath || !newMember.name) return;
+    await addDoc(collection(db, restaurantPath, 'staff'), {
       ...newMember,
       joinedAt: Date.now(),
       status: 'off-duty',
@@ -55,13 +57,13 @@ export default function StaffTab() {
   };
 
   const updateStaffStatus = async (id: string, status: StaffMember['status']) => {
-    if (!db) return;
-    await updateDoc(doc(db, 'staff', id), { status });
+    if (!db || !restaurantPath) return;
+    await updateDoc(doc(db, restaurantPath, 'staff', id), { status });
   };
 
   const handleDeleteMember = async (id: string) => {
-    if (!db || !confirm('Are you sure you want to remove this staff member?')) return;
-    await deleteDoc(doc(db, 'staff', id));
+    if (!db || !restaurantPath || !confirm('Are you sure you want to remove this staff member?')) return;
+    await deleteDoc(doc(db, restaurantPath, 'staff', id));
   };
 
   const getStatusColor = (status: StaffMember['status']) => {
