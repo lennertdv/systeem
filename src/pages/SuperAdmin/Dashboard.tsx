@@ -44,6 +44,7 @@ export default function SuperAdminDashboard() {
     };
 
     const fetchStats = async () => {
+      if (!db) return;
       try {
         // 1. Fetch Restaurants
         const restaurantsSnapshot = await getDocs(collection(db, 'restaurants'));

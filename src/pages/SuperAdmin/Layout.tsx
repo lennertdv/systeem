@@ -25,6 +25,10 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const location = useLocation();
 
   useEffect(() => {
+    if (!auth || !db) {
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         navigate('/super-admin/login');

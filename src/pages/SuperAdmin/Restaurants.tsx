@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc, collectionGroup, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, collectionGroup, query, where, setDoc, addDoc } from 'firebase/firestore';
+import { initializeApp, deleteApp, getApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { db } from '../../lib/firebase';
 import { 
   Plus, 
@@ -79,42 +81,103 @@ export default function RestaurantManagement() {
 
   const handleAddRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!db) {
+      setFormError("Database not initialized");
+      return;
+    }
     setFormLoading(true);
     setFormError(null);
 
+    let secondaryApp;
     try {
-      const apiUrl = '/api/super-admin/create-restaurant';
-      console.log(`[DEBUG] Calling API: ${window.location.origin}${apiUrl}`);
+      // 1. Create a secondary Firebase app to create the user without logging out the admin
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      };
+
+      const secondaryAppName = `secondary-${Date.now()}`;
+      secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+      const secondaryAuth = getAuth(secondaryApp);
+
+      console.log(`[DEBUG] Creating user in secondary auth instance...`);
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+      // 2. Create the Auth User
+      const userCredential = await createUserWithEmailAndPassword(
+        secondaryAuth, 
+        formData.email, 
+        formData.password
+      );
+      const uid = userCredential.user.uid;
+
+      console.log(`[DEBUG] User created with UID: ${uid}. Writing Firestore records...`);
+
+      // 3. Create Restaurant Parent Document
+      await setDoc(doc(db, 'restaurants', formData.slug), {
+        createdAt: Date.now(),
+        slug: formData.slug
       });
 
-      let result;
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        result = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || 'Server returned a non-JSON response');
-      }
+      // 4. Create Restaurant Settings
+      await setDoc(doc(db, 'restaurants', formData.slug, 'settings', 'general'), {
+        restaurantName: formData.name,
+        slug: formData.slug,
+        ownerEmail: formData.email,
+        ownerUid: uid,
+        isOpen: true,
+        createdAt: Date.now(),
+        plan: 'starter',
+        currency: '€'
+      });
 
-      if (!response.ok) throw new Error(result.error || 'Failed to create restaurant');
+      // 5. Create User Record
+      await setDoc(doc(db, 'users', uid), {
+        role: 'tenant',
+        restaurantSlug: formData.slug,
+        email: formData.email
+      });
+
+      // 6. Seed empty menu category
+      await addDoc(collection(db, 'restaurants', formData.slug, 'categories'), {
+        name: 'Main Menu',
+        order: 1
+      });
+
+      // 7. Sign out from secondary app and delete it
+      await signOut(secondaryAuth);
+      
+      console.log(`[DEBUG] Restaurant creation successful!`);
 
       await fetchRestaurants();
       setIsAdding(false);
       setFormData({ name: '', slug: '', email: '', password: '' });
     } catch (err: any) {
       console.error("Create restaurant error:", err);
-      setFormError(err.message);
+      let message = err.message;
+      if (err.code === 'auth/email-already-in-use') {
+        message = "This email is already registered.";
+      } else if (err.code === 'auth/weak-password') {
+        message = "Password should be at least 6 characters.";
+      }
+      setFormError(message);
     } finally {
+      if (secondaryApp) {
+        try {
+          await deleteApp(secondaryApp);
+        } catch (e) {
+          console.error("Error deleting secondary app:", e);
+        }
+      }
       setFormLoading(false);
     }
   };
 
   const toggleStatus = async (restaurant: Restaurant) => {
+    if (!db) return;
     try {
       await updateDoc(doc(db, 'restaurants', restaurant.slug, 'settings', 'general'), {
         isOpen: !restaurant.isOpen
