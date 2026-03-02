@@ -44,21 +44,28 @@ export default function SuperAdminDashboard() {
     };
 
     const fetchStats = async () => {
-      if (!db) return;
+      if (!db) {
+        setLoading(false);
+        return;
+      }
       try {
-        // 1. Fetch Restaurants
-        const restaurantsSnapshot = await getDocs(collection(db, 'restaurants'));
+        // 1. Fetch Restaurants using the same logic as Restaurants.tsx for consistency
+        const { collectionGroup } = await import('firebase/firestore');
+        const qSettings = query(collectionGroup(db, 'settings'));
+        const settingsSnapshot = await getDocs(qSettings);
+        
         let activeCount = 0;
         const restaurantSlugs: string[] = [];
 
-        for (const doc of restaurantsSnapshot.docs) {
-          const infoDoc = await getDocs(collection(db, 'restaurants', doc.id, 'info'));
-          const info = infoDoc.docs[0]?.data();
-          if (info?.active) {
-            activeCount++;
-            restaurantSlugs.push(doc.id);
+        settingsSnapshot.forEach((doc) => {
+          if (doc.id === 'general') {
+            const data = doc.data();
+            if (data.isOpen !== false) { // Default to true if missing
+              activeCount++;
+              restaurantSlugs.push(doc.ref.parent.parent?.id || '');
+            }
           }
-        }
+        });
 
         // 2. Fetch Orders Today
         const startOfDay = new Date();

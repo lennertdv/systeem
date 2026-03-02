@@ -49,7 +49,10 @@ export default function RestaurantManagement() {
   }, []);
 
   const fetchRestaurants = async () => {
-    if (!db) return;
+    if (!db) {
+      setLoading(false);
+      return;
+    }
     try {
       // Use collectionGroup to find all 'general' settings documents across all restaurants
       const q = query(collectionGroup(db, 'settings'));
@@ -60,8 +63,13 @@ export default function RestaurantManagement() {
         if (doc.id === 'general') {
           const data = doc.data();
           // Only add if it has a restaurantName (valid setting)
-          if (data.restaurantName) {
-            list.push({ id: doc.ref.parent.parent?.id || '', ...data } as Restaurant);
+          if (data && data.restaurantName) {
+            const restaurantId = doc.ref.parent.parent?.id || 'unknown';
+            list.push({ 
+              id: restaurantId, 
+              ...data,
+              createdAt: data.createdAt || Date.now() // Fallback for missing dates
+            } as Restaurant);
           }
         }
       });
@@ -271,7 +279,9 @@ export default function RestaurantManagement() {
                       <p className="text-[10px] text-neutral-600">€35/month</p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs text-neutral-500">{format(new Date(restaurant.createdAt), 'MMM d, yyyy')}</span>
+                      <span className="text-xs text-neutral-500">
+                        {restaurant.createdAt ? format(new Date(restaurant.createdAt), 'MMM d, yyyy') : 'N/A'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
