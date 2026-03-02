@@ -25,7 +25,28 @@ export default function ImpersonationBanner() {
     sessionStorage.removeItem('superadmin_impersonating');
     sessionStorage.removeItem('superadmin_restaurant_slug');
     sessionStorage.removeItem('superadmin_restaurant_name');
-    navigate('/super-admin/login');
+    
+    // Determine the root domain to return to
+    const hostname = window.location.hostname;
+    
+    // If we are on a path-based URL (e.g. /r/slug/admin)
+    if (window.location.pathname.startsWith('/r/')) {
+      window.location.href = `${window.location.protocol}//${hostname}/super-admin/login`;
+      return;
+    }
+
+    const parts = hostname.split('.');
+    
+    // Local dev fallback
+    if (hostname.includes('localhost')) {
+      window.location.href = `${window.location.protocol}//${window.location.host}/super-admin/login`;
+      return;
+    }
+
+    // Vercel subdomain logic (e.g. restaurant.admin.systeem-seven.vercel.app)
+    // We want to return to systeem-seven.vercel.app/super-admin/login
+    const baseDomain = parts.slice(-3).join('.'); // systeem-seven.vercel.app
+    window.location.href = `${window.location.protocol}//${baseDomain}/super-admin/login`;
   };
 
   if (!isImpersonating) return null;

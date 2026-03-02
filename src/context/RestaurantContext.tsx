@@ -8,12 +8,16 @@ interface RestaurantContextType {
   restaurantSlug: string | null;
   restaurantPath: string | null;
   loading: boolean;
+  isRootDomain: boolean;
+  isAdminSubdomain: boolean;
 }
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
   const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
+  const [isRootDomain, setIsRootDomain] = useState(false);
+  const [isAdminSubdomain, setIsAdminSubdomain] = useState(false);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
@@ -21,74 +25,79 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
     let isMounted = true;
 
     const resolveSlug = async () => {
-      // 1. Check Subdomain
       const hostname = window.location.hostname;
+      const pathname = window.location.pathname;
       const parts = hostname.split('.');
+      const pathParts = pathname.split('/');
       
-      // Handle local dev (e.g. mario.localhost) or production subdomains
-      if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'localhost') {
+      // 1. Path-based detection (Primary for .vercel.app)
+      // URL format: /r/restaurant-slug/...
+      if (pathParts[1] === 'r' && pathParts[2]) {
         if (isMounted) {
-          setRestaurantSlug(parts[0]);
-          setLoading(false);
-        }
-        return;
-      }
-
-      // 2. Check Query Param (Local Dev Fallback)
-      const params = new URLSearchParams(window.location.search);
-      const querySlug = params.get('slug');
-      if (querySlug) {
-        if (isMounted) {
-          setRestaurantSlug(querySlug);
-          setLoading(false);
-        }
-        return;
-      }
-
-      // 3. Check Auth User (for Admin Panel)
-      if (!auth || !db) {
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            if (userDoc.exists()) {
-              const data = userDoc.data();
-              if (data.restaurantSlug && isMounted) {
-                setRestaurantSlug(data.restaurantSlug);
-              }
-            }
-          } catch (error) {
-            console.error("Error fetching user profile:", error);
+          setRestaurantSlug(pathParts[2]);
+          setIsRootDomain(false);
+          if (pathParts[3] === 'admin') {
+            setIsAdminSubdomain(true);
           }
+          setLoading(false);
         }
-        if (isMounted) setLoading(false);
-      });
-
-      return () => {
-        isMounted = false;
-        unsubscribe();
-      };
-    };
-
-    const cleanup = resolveSlug();
-    return () => {
-      if (typeof cleanup === 'function') {
-        // @ts-ignore
-        cleanup();
+        return;
       }
+
+      // 2. Subdomain logic (For custom domains)
+      const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+      const isBaseDomain = parts.length <= (hostname.includes('vercel.app') ? 3 : 2) && !isLocal;
+
+      if (isBaseDomain || isLocal) {
+        if (isMounted) {
+          setIsRootDomain(true);
+          const params = new URLSearchParams(window.location.search);
+          const querySlug = params.get('slug');
+          if (querySlug) setRestaurantSlug(querySlug);
+        }
+      } else if (parts.length > (hostname.includes('vercel.app') ? 3 : 2)) {
+        const slug = parts[0];
+        const secondPart = parts[1];
+        if (isMounted) {
+          setRestaurantSlug(slug);
+          setIsRootDomain(false);
+          if (secondPart === 'admin') setIsAdminSubdomain(true);
+        }
+      }
+
+      // Auth User Fallback
+      if (!restaurantSlug && auth && db) {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          if (user && isMounted) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', user.uid));
+              if (userDoc.exists()) {
+                const data = userDoc.data();
+                if (data.restaurantSlug) setRestaurantSlug(data.restaurantSlug);
+              }
+            } catch (error) {
+              console.error("Error fetching user profile:", error);
+            }
+          }
+          if (isMounted) setLoading(false);
+        });
+        return unsubscribe;
+      }
+
+      if (isMounted) setLoading(false);
     };
-  }, []);
+
+    resolveSlug();
+    return () => { isMounted = false; };
+  }, [restaurantSlug, location.pathname]);
 
   const restaurantPath = restaurantSlug ? `restaurants/${restaurantSlug}` : null;
 
-  // Skip "Not Found" for super-admin and login
+  // Skip "Not Found" for super-admin, login, and root domain
   const isSpecialRoute = location.pathname.startsWith('/super-admin') || 
                          location.pathname === '/admin/login' ||
-                         location.pathname === '/setup';
+                         location.pathname === '/setup' ||
+                         isRootDomain;
 
   if (loading) {
     return (
@@ -115,7 +124,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <RestaurantContext.Provider value={{ restaurantSlug, restaurantPath, loading }}>
+    <RestaurantContext.Provider value={{ restaurantSlug, restaurantPath, loading, isRootDomain, isAdminSubdomain }}>
       {children}
     </RestaurantContext.Provider>
   );

@@ -109,8 +109,24 @@ export default function RestaurantDetail() {
       // Sign in as the owner
       await signInWithCustomToken(auth, customToken);
       
-      // Navigate to admin dashboard
-      navigate('/admin');
+      // Determine the target URL based on the subdomain structure
+      const hostname = window.location.hostname;
+      
+      // If we are on .vercel.app, use path-based routing
+      if (hostname.includes('vercel.app') && !hostname.includes('admin.')) {
+        window.location.href = `${window.location.protocol}//${hostname}/r/${info.slug}/admin`;
+        return;
+      }
+
+      const baseDomain = hostname.includes('vercel.app') 
+        ? hostname.split('.').slice(-3).join('.') 
+        : hostname;
+      
+      const targetUrl = hostname.includes('localhost')
+        ? `${window.location.protocol}//${window.location.host}/r/${info.slug}/admin`
+        : `${window.location.protocol}//${info.slug}.admin.${baseDomain}`;
+
+      window.location.href = targetUrl;
     } catch (error: any) {
       console.error("Impersonation error:", error);
       alert(error.message);
