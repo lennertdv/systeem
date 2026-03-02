@@ -102,8 +102,9 @@ export default function RestaurantDetail() {
       const { customToken } = data;
 
       // Store current super admin info to allow switching back
-      sessionStorage.setItem('impersonating_as_super_admin', auth.currentUser.uid);
-      sessionStorage.setItem('impersonating_restaurant_name', info.restaurantName);
+      sessionStorage.setItem('superadmin_impersonating', 'true');
+      sessionStorage.setItem('superadmin_restaurant_slug', info.slug);
+      sessionStorage.setItem('superadmin_restaurant_name', info.restaurantName);
       
       // Sign in as the owner
       await signInWithCustomToken(auth, customToken);

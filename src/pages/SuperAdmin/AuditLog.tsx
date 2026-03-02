@@ -9,8 +9,8 @@ interface AuditEvent {
   action: string;
   superAdminUid: string;
   superAdminEmail: string;
-  targetUid: string;
-  slug: string;
+  targetOwnerUid: string;
+  restaurantSlug: string;
   timestamp: number;
 }
 
@@ -97,7 +97,7 @@ export default function AuditLog() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <Store className="w-4 h-4 text-neutral-500" />
-                        <span className="text-sm font-bold text-neutral-300">/{log.slug}</span>
+                        <span className="text-sm font-bold text-neutral-300">/{log.restaurantSlug}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">

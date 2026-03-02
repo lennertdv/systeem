@@ -21,8 +21,8 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ImpersonationBanner />
       <RestaurantProvider>
-        <ImpersonationBanner />
         <Routes>
           <Route path="/" element={<CustomerView />} />
           <Route path="/kitchen" element={<KitchenView />} />
