@@ -9,6 +9,7 @@ import OrdersTab from './Tabs/OrdersTab';
 import SettingsTab from './Tabs/SettingsTab';
 import StaffTab from './Tabs/StaffTab';
 import TableLayout from './TableLayout';
+import Onboarding from './Onboarding';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
 import { useRestaurant } from '../../context/RestaurantContext';
 
@@ -17,7 +18,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'analytics' | 'menu' | 'orders' | 'tables' | 'settings' | 'staff'>('analytics');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { settings, updateSettings } = useStoreSettings(restaurantPath);
+  const { settings, updateSettings, loading: settingsLoading } = useStoreSettings(restaurantPath);
 
   useEffect(() => {
     if (!auth) return;
@@ -37,8 +38,13 @@ export default function AdminDashboard() {
     navigate('/admin/login');
   };
 
-  if (loading) {
+  if (loading || settingsLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-neutral-50 text-neutral-500">Loading...</div>;
+  }
+
+  // Show onboarding if not completed
+  if (settings && !settings.onboardingCompleted) {
+    return <Onboarding />;
   }
 
   return (

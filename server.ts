@@ -75,8 +75,14 @@ async function startServer() {
     const app = express();
     const PORT = 3000;
 
-  app.use(cors());
-  app.use(express.json());
+    // Global request logger
+    app.use((req, res, next) => {
+      console.log(`[SERVER] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+      next();
+    });
+
+    app.use(cors());
+    app.use(express.json());
 
   // Initialize Stripe only when needed to prevent crashing on startup if key is missing
   let stripeClient: Stripe | null = null;
@@ -194,6 +200,12 @@ async function startServer() {
     }
   });
 
+  // 404 handler for API routes (must be before Vite/SPA fallback)
+  app.use("/api/*", (req, res) => {
+    console.warn(`[SERVER] 404 on API route: ${req.method} ${req.url}`);
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -217,4 +229,7 @@ async function startServer() {
   }
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("CRITICAL: FAILED TO START SERVER:", err);
+  process.exit(1);
+});

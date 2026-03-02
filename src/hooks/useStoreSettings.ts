@@ -9,6 +9,10 @@ export interface StoreSettings {
   currency?: string;
   contactEmail?: string;
   address?: string;
+  phone?: string;
+  website?: string;
+  onboardingCompleted?: boolean;
+  onboardingStep?: number;
 }
 
 export function useStoreSettings(restaurantPath: string | null) {
