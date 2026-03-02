@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, getDocs, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { signInWithCustomToken } from 'firebase/auth';
+import { auth, db } from '../../lib/firebase';
 import { 
   ArrowLeft, 
   Store, 
@@ -15,7 +16,8 @@ import {
   Save,
   X,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ShieldAlert
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -23,6 +25,7 @@ interface RestaurantInfo {
   restaurantName: string;
   slug: string;
   ownerEmail: string;
+  ownerUid: string;
   isOpen: boolean;
   createdAt: number;
   plan: string;
@@ -37,6 +40,8 @@ export default function RestaurantDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showImpersonateModal, setShowImpersonateModal] = useState(false);
+  const [impersonating, setImpersonating] = useState(false);
 
   useEffect(() => {
     if (slug) {
@@ -45,7 +50,7 @@ export default function RestaurantDetail() {
   }, [slug]);
 
   const fetchData = async () => {
-    if (!slug) return;
+    if (!slug || !db) return;
     try {
       // 1. Fetch Info
       const infoDoc = await getDoc(doc(db, 'restaurants', slug, 'settings', 'general'));
@@ -69,6 +74,48 @@ export default function RestaurantDetail() {
       console.error("Error fetching restaurant detail:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImpersonate = async () => {
+    if (!info || !auth?.currentUser) return;
+    setImpersonating(true);
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/super-admin/impersonate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          ownerUid: info.ownerUid,
+          slug: info.slug
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to impersonate');
+      }
+
+      const { customToken } = await response.json();
+
+      // Store current super admin info to allow switching back
+      sessionStorage.setItem('impersonating_as_super_admin', auth.currentUser.uid);
+      sessionStorage.setItem('impersonating_restaurant_name', info.restaurantName);
+      
+      // Sign in as the owner
+      await signInWithCustomToken(auth, customToken);
+      
+      // Navigate to admin dashboard
+      navigate('/admin');
+    } catch (error: any) {
+      console.error("Impersonation error:", error);
+      alert(error.message);
+    } finally {
+      setImpersonating(false);
+      setShowImpersonateModal(false);
     }
   };
 
@@ -245,12 +292,49 @@ export default function RestaurantDetail() {
 
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
             <p className="text-sm text-neutral-400 mb-4">Need to manage this restaurant's menu or orders?</p>
-            <button className="px-6 py-2.5 bg-white/5 text-white text-sm font-bold rounded-xl hover:bg-white/10 transition-all border border-white/10">
+            <button 
+              onClick={() => setShowImpersonateModal(true)}
+              className="px-6 py-2.5 bg-white/5 text-white text-sm font-bold rounded-xl hover:bg-white/10 transition-all border border-white/10"
+            >
               Impersonate Owner
             </button>
           </div>
         </div>
       </div>
+
+      {/* Impersonate Confirmation Modal */}
+      {showImpersonateModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#0F0F0F] border border-white/10 rounded-[2rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-6">
+                <ShieldAlert className="w-8 h-8 text-amber-500" />
+              </div>
+              <h3 className="text-2xl font-bold tracking-tight mb-4">Impersonate Owner</h3>
+              <p className="text-neutral-400 text-sm mb-8 leading-relaxed">
+                Je staat op het punt om in te loggen als de eigenaar van <span className="text-white font-bold">{info.restaurantName}</span>. 
+                Je huidige super admin sessie wordt tijdelijk onderbroken.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4 w-full">
+                <button
+                  onClick={() => setShowImpersonateModal(false)}
+                  className="px-6 py-3 bg-white/5 text-white font-bold rounded-xl hover:bg-white/10 transition-all"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleImpersonate}
+                  disabled={impersonating}
+                  className="px-6 py-3 bg-white text-black font-bold rounded-xl hover:bg-neutral-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {impersonating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Doorgaan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

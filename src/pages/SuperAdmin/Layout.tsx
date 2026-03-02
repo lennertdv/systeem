@@ -10,7 +10,8 @@ import {
   ShieldCheck,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 
 interface SuperAdminLayoutProps {
@@ -72,6 +73,7 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/super-admin' },
     { icon: Store, label: 'Restaurants', path: '/super-admin/restaurants' },
+    { icon: Shield, label: 'Audit Log', path: '/super-admin/audit-log' },
   ];
 
   return (

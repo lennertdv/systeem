@@ -114,6 +114,57 @@ async function startServer() {
     res.json({ status: "super-admin-ok" });
   });
 
+  // Impersonation Endpoint
+  app.post("/api/super-admin/impersonate", async (req, res) => {
+    console.log(`[SERVER] POST /api/super-admin/impersonate`);
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const idToken = authHeader.split('Bearer ')[1];
+      const adminInstance = getAdmin();
+      const auth = adminInstance.auth();
+      const db = adminInstance.firestore();
+
+      // 1. Verify Super Admin
+      const decodedToken = await auth.verifyIdToken(idToken);
+      const superAdminUid = decodedToken.uid;
+
+      const userDoc = await db.collection('users').doc(superAdminUid).get();
+      if (!userDoc.exists || userDoc.data()?.role !== 'superadmin') {
+        console.warn(`[SUPER_ADMIN] Unauthorized impersonation attempt by ${superAdminUid}`);
+        return res.status(403).json({ error: 'Forbidden: Super Admin only' });
+      }
+
+      const { ownerUid, slug } = req.body;
+      if (!ownerUid) {
+        return res.status(400).json({ error: 'Missing ownerUid' });
+      }
+
+      console.log(`[SUPER_ADMIN] ${superAdminUid} is impersonating ${ownerUid} (${slug || 'unknown slug'})`);
+
+      // 2. Create Custom Token
+      const customToken = await auth.createCustomToken(ownerUid);
+
+      // 3. Log the action
+      await db.collection('audit_log').add({
+        action: 'impersonate',
+        superAdminUid,
+        superAdminEmail: decodedToken.email,
+        targetUid: ownerUid,
+        slug: slug || 'unknown',
+        timestamp: Date.now()
+      });
+
+      res.json({ customToken });
+    } catch (error: any) {
+      console.error("Impersonation error:", error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  });
+
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
       const { amount, currency = 'usd' } = req.body;
