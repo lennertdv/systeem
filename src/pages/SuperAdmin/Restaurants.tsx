@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, collectionGroup, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { 
   Plus, 
@@ -47,18 +47,22 @@ export default function RestaurantManagement() {
   }, []);
 
   const fetchRestaurants = async () => {
+    if (!db) return;
     try {
-      const { getDoc } = await import('firebase/firestore');
-      const snapshot = await getDocs(collection(db, 'restaurants'));
+      // Use collectionGroup to find all 'general' settings documents across all restaurants
+      const q = query(collectionGroup(db, 'settings'));
+      const snapshot = await getDocs(q);
       const list: Restaurant[] = [];
       
-      for (const restaurantDoc of snapshot.docs) {
-        const settingsDoc = await getDoc(doc(db, 'restaurants', restaurantDoc.id, 'settings', 'general'));
-        const info = settingsDoc.data();
-        if (info) {
-          list.push({ id: restaurantDoc.id, ...info } as Restaurant);
+      snapshot.forEach((doc) => {
+        if (doc.id === 'general') {
+          const data = doc.data();
+          // Only add if it has a restaurantName (valid setting)
+          if (data.restaurantName) {
+            list.push({ id: doc.ref.parent.parent?.id || '', ...data } as Restaurant);
+          }
         }
-      }
+      });
       
       setRestaurants(list);
     } catch (error) {

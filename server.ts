@@ -175,6 +175,11 @@ async function startServer() {
       });
 
       // 2. Create Restaurant Settings
+      await db.collection('restaurants').doc(slug).set({
+        createdAt: Date.now(),
+        slug
+      });
+
       await db.collection('restaurants').doc(slug).collection('settings').doc('general').set({
         restaurantName: name,
         slug,
