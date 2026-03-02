@@ -5,6 +5,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
 
+console.log("[SERVER] Starting server.ts initialization...");
+
 dotenv.config();
 
 // Initialize Firebase Admin lazily
@@ -142,7 +144,7 @@ async function startServer() {
   });
 
   app.post("/api/super-admin/create-restaurant", async (req, res) => {
-    console.log(`[SUPER_ADMIN] Received request to create restaurant: ${req.body?.name}`);
+    console.log(`[SERVER] POST /api/super-admin/create-restaurant - Body:`, JSON.stringify(req.body));
     try {
       const { name, slug, email, password } = req.body;
       
