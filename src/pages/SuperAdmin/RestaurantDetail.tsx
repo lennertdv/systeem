@@ -94,12 +94,12 @@ export default function RestaurantDetail() {
         })
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to impersonate');
+        throw new Error(data.error || 'Failed to impersonate');
       }
 
-      const { customToken } = await response.json();
+      const { customToken } = data;
 
       // Store current super admin info to allow switching back
       sessionStorage.setItem('impersonating_as_super_admin', auth.currentUser.uid);
