@@ -71,7 +71,7 @@ export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
   if (!isSuperAdmin) return null;
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/super-admin' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/super-admin/dashboard' },
     { icon: Store, label: 'Restaurants', path: '/super-admin/restaurants' },
     { icon: Shield, label: 'Audit Log', path: '/super-admin/audit-log' },
   ];

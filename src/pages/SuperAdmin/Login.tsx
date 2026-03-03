@@ -25,7 +25,7 @@ export default function SuperAdminLogin() {
       const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       
       if (userDoc.exists() && userDoc.data().role === 'superadmin') {
-        navigate('/super-admin');
+        navigate('/super-admin/dashboard');
       } else {
         setError('Access denied. You do not have super admin privileges.');
         await auth.signOut();

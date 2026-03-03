@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { LogOut, LayoutDashboard, UtensilsCrossed, History, Store, Map as MapIcon, Users } from 'lucide-react';
 import AnalyticsTab from './Tabs/AnalyticsTab';
 import MenuTab from './Tabs/MenuTab';
@@ -14,28 +15,41 @@ import { useStoreSettings } from '../../hooks/useStoreSettings';
 import { useRestaurant } from '../../context/RestaurantContext';
 
 export default function AdminDashboard() {
+  const { slug } = useParams<{ slug: string }>();
   const { restaurantPath } = useRestaurant();
   const [activeTab, setActiveTab] = useState<'analytics' | 'menu' | 'orders' | 'tables' | 'settings' | 'staff'>('analytics');
   const [loading, setLoading] = useState(true);
+  const [restaurantName, setRestaurantName] = useState('');
   const navigate = useNavigate();
   const { settings, updateSettings, loading: settingsLoading } = useStoreSettings(restaurantPath);
 
   useEffect(() => {
-    if (!auth) return;
+    if (!slug) return;
+    const fetchName = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'restaurants', slug, 'info', 'general'));
+        if (snap.exists()) setRestaurantName(snap.data().name || slug);
+      } catch (e) {}
+    };
+    fetchName();
+  }, [slug]);
+
+  useEffect(() => {
+    if (!auth || !slug) return;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
-        navigate('/admin/login');
+        navigate(`/r/${slug}/login`);
       } else {
         setLoading(false);
       }
     });
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, slug]);
 
   const handleLogout = async () => {
-    if (!auth) return;
+    if (!auth || !slug) return;
     await signOut(auth);
-    navigate('/admin/login');
+    navigate(`/r/${slug}/login`);
   };
 
   if (loading || settingsLoading) {
@@ -51,9 +65,12 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-neutral-50 flex flex-col md:flex-row">
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-white shadow-sm md:h-screen sticky top-0 flex flex-col">
-        <div className="p-6 border-b border-neutral-100 flex items-center justify-between md:justify-center">
+        <div className="p-6 border-b border-neutral-100 flex flex-col items-center justify-center text-center">
+          <div className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-1">
+            {restaurantName || 'Loading...'}
+          </div>
           <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Admin Portal</h1>
-          <button onClick={handleLogout} className="md:hidden text-neutral-500 hover:text-neutral-900">
+          <button onClick={handleLogout} className="md:hidden absolute top-6 right-6 text-neutral-500 hover:text-neutral-900">
             <LogOut className="w-5 h-5" />
           </button>
         </div>
@@ -136,13 +153,13 @@ export default function AdminDashboard() {
           <div className="h-px bg-neutral-100 my-2 hidden md:block"></div>
           
           <a
-            href="/"
+            href={`/r/${slug}`}
             className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-neutral-600 hover:bg-neutral-100 transition-colors whitespace-nowrap"
           >
             Menu View
           </a>
           <a
-            href="/kitchen"
+            href={`/r/${slug}/kitchen`}
             className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-neutral-600 hover:bg-neutral-100 transition-colors whitespace-nowrap"
           >
             Kitchen View
